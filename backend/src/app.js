@@ -27,43 +27,53 @@ const examProctorRoutes = require("./routes/examProctorRoutes");
 const app = express();
 
 // Middlewares
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Root Healthcheck
-app.get("/", (req, res) => {
+// Root & Healthcheck
+const healthHandler = (req, res) => {
   res.json({
+    status: "ok",
     message: "SGIP Student Growth Intelligence & Placement Platform API is running",
+    timestamp: new Date(),
     version: "2.0.0",
     roles: ["STUDENT", "FACULTY", "PLACEMENT_COORDINATOR"],
   });
-});
+};
 
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date(), version: "2.0.0" });
-});
+app.get("/", healthHandler);
+app.get("/api", healthHandler);
+app.get("/api/health", healthHandler);
+app.get("/health", healthHandler);
 
-// API Routes Mounting
-app.use("/api/auth", authRoutes);
-app.use("/api/students", studentRoutes);
-app.use("/api/skills", skillRoutes);
-app.use("/api/assessments", assessmentRoutes);
-app.use("/api/code", codeRoutes);
-app.use("/api/courses", courseRoutes);
-app.use("/api/learning-plans", learningPlanRoutes);
-app.use("/api/companies", companyRoutes);
-app.use("/api/drives", placementDriveRoutes);
-app.use("/api/applications", applicationRoutes);
-app.use("/api/resumes", resumeRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/faculty", facultyRoutes);
-app.use("/api/coordinator", coordinatorRoutes);
-app.use("/api/assignments", assignmentRoutes);
-app.use("/api/rag", ragRoutes);
-app.use("/api/exam-proctor", examProctorRoutes);
+// API Routes Mounting (support both /api/path and /path)
+const routes = [
+  { path: "auth", handler: authRoutes },
+  { path: "students", handler: studentRoutes },
+  { path: "skills", handler: skillRoutes },
+  { path: "assessments", handler: assessmentRoutes },
+  { path: "code", handler: codeRoutes },
+  { path: "courses", handler: courseRoutes },
+  { path: "learning-plans", handler: learningPlanRoutes },
+  { path: "companies", handler: companyRoutes },
+  { path: "drives", handler: placementDriveRoutes },
+  { path: "applications", handler: applicationRoutes },
+  { path: "resumes", handler: resumeRoutes },
+  { path: "ai", handler: aiRoutes },
+  { path: "notifications", handler: notificationRoutes },
+  { path: "admin", handler: adminRoutes },
+  { path: "faculty", handler: facultyRoutes },
+  { path: "coordinator", handler: coordinatorRoutes },
+  { path: "assignments", handler: assignmentRoutes },
+  { path: "rag", handler: ragRoutes },
+  { path: "exam-proctor", handler: examProctorRoutes },
+];
+
+routes.forEach(({ path: p, handler }) => {
+  app.use(`/api/${p}`, handler);
+  app.use(`/${p}`, handler);
+});
 
 // Error Handling
 app.use(notFound);
