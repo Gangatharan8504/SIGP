@@ -341,6 +341,49 @@ const seedDatabase = async () => {
   } catch (err) {
     console.error("Database seeding error:", err);
   }
+
+  // Ensure default demo users exist
+  try {
+    const User = require("../models/User");
+    const StudentProfile = require("../models/StudentProfile");
+    const Academic = require("../models/Academic");
+
+    const ensureUser = async (name, email, password, role) => {
+      let u = await User.findOne({ email });
+      if (!u) {
+        u = await User.create({ name, email, password, role });
+        if (role === "student") {
+          await StudentProfile.create({
+            user: u._id,
+            fullName: name,
+            rollNumber: "SGIP-2026",
+            department: "Information Technology",
+            batch: "2023-2027",
+            collegeName: "V.S.B Engineering College",
+            targetRole: "Full Stack Software Engineer",
+            cgpa: 7.48,
+          });
+          await Academic.create({
+            userId: u._id,
+            cgpa: 7.48,
+            currentDegree: "B.Tech",
+            branch: "Information Technology",
+            currentSemester: 6,
+            tenthPercentage: 88,
+            twelfthOrDiplomaPercentage: 85,
+          });
+        }
+      }
+    };
+
+    await ensureUser("GANGATHARAN M", "gangatharan8504@gmail.com", "password123", "student");
+    await ensureUser("Demo Student", "student@demo.com", "password123", "student");
+    await ensureUser("Admin Lead", "admin@demo.com", "password123", "admin");
+    await ensureUser("Faculty Mentor", "faculty@demo.com", "password123", "faculty");
+    await ensureUser("Placement Coordinator", "coordinator@demo.com", "password123", "placement_coordinator");
+  } catch (e) {
+    console.error("Error ensuring default users:", e.message);
+  }
 };
 
 module.exports = seedDatabase;
