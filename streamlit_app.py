@@ -738,7 +738,13 @@ Tamil, English"""
 # ==============================================================================
 with st.sidebar:
     st.markdown("### ⚙️ SGIP ATS Settings")
-    groq_api_key = st.text_input("Groq API Key", value=DEFAULT_GROQ_KEY, type="password")
+    st.markdown("""
+    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 10px; margin-bottom: 12px;">
+        <span style="color: #34d399; font-size: 0.8rem; font-weight: 700;">🟢 AI Engine Online</span>
+        <p style="color: #94a3b8; font-size: 0.72rem; margin: 4px 0 0 0;">Automated Multi-Model ATS Intelligence</p>
+    </div>
+    """, unsafe_allow_html=True)
+    groq_api_key = DEFAULT_GROQ_KEY
     target_job_role = st.selectbox(
         "Target Role Benchmark",
         [
