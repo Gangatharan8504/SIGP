@@ -82,12 +82,19 @@ export const ResumeAnalyzerPage = () => {
   const [statusMsg, setStatusMsg] = useState('');
 
   // Streamlit State
+  const LIVE_STREAMLIT_DEFAULT = 'https://o5ncf6zfdyygut2dutxnna.streamlit.app';
   const [streamlitUrl, setStreamlitUrl] = useState(() => {
-    return import.meta.env.VITE_STREAMLIT_URL || localStorage.getItem('sgip_streamlit_url') || 'http://localhost:8501';
+    return import.meta.env.VITE_STREAMLIT_URL || localStorage.getItem('sgip_streamlit_url') || LIVE_STREAMLIT_DEFAULT;
   });
   const [iframeKey, setIframeKey] = useState(Date.now());
   const [editingUrl, setEditingUrl] = useState(false);
   const [tempUrl, setTempUrl] = useState(streamlitUrl);
+
+  const getEmbedUrl = (url) => {
+    if (!url) return '';
+    if (url.includes('embed=true')) return url;
+    return url.includes('?') ? `${url}&embed=true` : `${url}?embed=true`;
+  };
 
   useEffect(() => {
     // Initial standard analysis load
@@ -606,7 +613,7 @@ export const ResumeAnalyzerPage = () => {
             <div className="w-full h-[85vh] min-h-[700px] rounded-2xl overflow-hidden border border-rose-500/20 bg-slate-950 relative">
               <iframe
                 key={iframeKey}
-                src={streamlitUrl}
+                src={getEmbedUrl(streamlitUrl)}
                 title="SGIP AI Resume ATS Analyzer Streamlit App"
                 className="w-full h-full border-0"
                 allow="clipboard-write; clipboard-read"
