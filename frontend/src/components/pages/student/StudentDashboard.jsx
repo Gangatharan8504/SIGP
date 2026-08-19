@@ -75,6 +75,14 @@ export const StudentDashboard = () => {
   const assessmentTrend = data?.assessmentTrend || [];
 
   const hasReadinessScore = scores.readinessScore !== null && scores.readinessScore !== undefined;
+  
+  const resolvedBatch =
+    profile.batchYear ||
+    profile.graduationYear ||
+    academic?.graduationYear ||
+    academic?.batchYear ||
+    (profile.batch ? String(profile.batch).replace(/.*-/, '') : null) ||
+    2027;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -92,7 +100,7 @@ export const StudentDashboard = () => {
             )}
             <Badge variant="pink">{profile.targetRole || "Full Stack Software Engineer"}</Badge>
             <span className="text-xs text-rose-300 light:text-rose-800 font-mono font-bold">
-              Batch {profile.batchYear || 2026}
+              Batch {resolvedBatch}
             </span>
           </div>
 

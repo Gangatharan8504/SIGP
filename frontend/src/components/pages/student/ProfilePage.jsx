@@ -29,7 +29,19 @@ export const ProfilePage = () => {
     try {
       const res = await studentApi.getProfile();
       if (res.data.success && res.data.profile) {
-        setProfile(res.data.profile);
+        const p = res.data.profile;
+        const ac = res.data.academic;
+        const resolvedYear =
+          p.batchYear ||
+          p.graduationYear ||
+          ac?.graduationYear ||
+          (p.batch ? String(p.batch).replace(/.*-/, "") : 2027);
+
+        setProfile({
+          ...p,
+          batchYear: resolvedYear,
+          graduationYear: resolvedYear,
+        });
       }
     } catch (e) {
       console.error(e);

@@ -96,6 +96,21 @@ const updateProfile = async (req, res) => {
     if (batch) profile.batch = batch;
     if (batchYear) profile.batchYear = Number(batchYear);
     if (graduationYear) profile.graduationYear = Number(graduationYear);
+    
+    // Normalize and sync batch/graduation year to Academic record
+    const syncGradYear = Number(graduationYear || batchYear || (batch ? String(batch).replace(/.*-/, "") : 0));
+    if (syncGradYear && !isNaN(syncGradYear)) {
+      profile.batchYear = syncGradYear;
+      profile.graduationYear = syncGradYear;
+      if (!profile.batch || profile.batch.includes("2026")) {
+        profile.batch = `${syncGradYear - 4}-${syncGradYear}`;
+      }
+      await Academic.findOneAndUpdate(
+        { userId: req.user._id },
+        { graduationYear: syncGradYear }
+      );
+    }
+    
     if (collegeName) profile.collegeName = collegeName;
     if (targetRole) profile.targetRole = targetRole;
     if (bio !== undefined) profile.bio = bio;
@@ -225,7 +240,14 @@ const saveAcademics = async (req, res) => {
     if (historyOfArrears !== undefined) academic.historyOfArrears = Number(historyOfArrears);
     if (standingArrears !== undefined) academic.standingArrears = Number(standingArrears);
     if (gapYears !== undefined) academic.gapYears = Number(gapYears);
-    if (graduationYear !== undefined) academic.graduationYear = Number(graduationYear);
+    if (graduationYear !== undefined) {
+      const gYear = Number(graduationYear);
+      academic.graduationYear = gYear;
+      await StudentProfile.findOneAndUpdate(
+        { user: req.user._id },
+        { batchYear: gYear, graduationYear: gYear, batch: `${gYear - 4}-${gYear}` }
+      );
+    }
 
     await academic.save();
 
