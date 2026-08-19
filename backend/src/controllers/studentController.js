@@ -214,12 +214,14 @@ const saveAcademics = async (req, res) => {
     checkDiff("12th/Diploma %", academic.twelfthOrDiplomaPercentage, twelfthOrDiplomaPercentage);
     checkDiff("12th Board", academic.twelfthBoard, twelfthBoard);
     checkDiff("Current Degree", academic.currentDegree, currentDegree);
-    checkDiff("Branch", academic.branch, branch);
+    checkDiff("Branch / Specialization", academic.branch, branch);
     checkDiff("Current Semester", academic.currentSemester, currentSemester);
-    checkDiff("Current CGPA", academic.cgpa, cgpa);
-    checkDiff("Active Backlogs", academic.activeBacklogs, activeBacklogs);
+    checkDiff("Cumulative CGPA", academic.cgpa, cgpa);
+    checkDiff("Active Standing Arrears", academic.standingArrears ?? academic.activeBacklogs, activeBacklogs ?? standingArrears);
+    checkDiff("History of Arrears", academic.historyOfArrears, historyOfArrears);
     checkDiff("Cleared Arrears", academic.clearedArrears, clearedArrears);
-    checkDiff("Gap Years", academic.gapYears, gapYears);
+    checkDiff("Education Gap Years", academic.gapYears, gapYears);
+    checkDiff("Year of Graduation", academic.graduationYear, graduationYear);
 
     if (tenthPercentage !== undefined) academic.tenthPercentage = Number(tenthPercentage);
     if (tenthBoard !== undefined) academic.tenthBoard = tenthBoard;

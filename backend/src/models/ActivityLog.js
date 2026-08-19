@@ -14,7 +14,21 @@ const activityLogSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["AUTH", "ASSESSMENT", "LEARNING", "RESUME", "DRIVE", "PROFILE", "CODING"],
+      enum: [
+        "AUTH",
+        "ASSESSMENT",
+        "LEARNING",
+        "RESUME",
+        "DRIVE",
+        "PROFILE",
+        "CODING",
+        "ACADEMIC",
+        "SKILL",
+        "APPLICATION",
+        "SYSTEM",
+        "NOTIFICATION",
+        "EXAM",
+      ],
       default: "PROFILE",
     },
     details: {
