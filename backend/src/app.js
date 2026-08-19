@@ -26,13 +26,62 @@ const examProctorRoutes = require("./routes/examProctorRoutes");
 
 const app = express();
 
-// Middlewares
-app.use(cors({ origin: true, credentials: true }));
+// Production CORS Configuration
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.STREAMLIT_URL,
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:8501",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:8501",
+]
+  .filter(Boolean)
+  .map((url) => url.trim().replace(/\/+$/, ""));
+
+if (process.env.FRONTEND_URL && process.env.FRONTEND_URL.includes(",")) {
+  process.env.FRONTEND_URL.split(",").forEach((o) => {
+    if (o.trim()) allowedOrigins.push(o.trim().replace(/\/+$/, ""));
+  });
+}
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const cleanOrigin = origin.trim().replace(/\/+$/, "");
+    const isAllowed =
+      allowedOrigins.some((allowed) => cleanOrigin === allowed) ||
+      cleanOrigin.includes("localhost") ||
+      cleanOrigin.includes("127.0.0.1") ||
+      (/\.vercel\.app$/.test(cleanOrigin) && allowedOrigins.some((a) => a.includes("vercel.app"))) ||
+      (/\.streamlit\.app$/.test(cleanOrigin) && allowedOrigins.some((a) => a.includes("streamlit.app")));
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      // Allow during transition or restrict to configured origins
+      callback(null, true);
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Root & Healthcheck
-const healthHandler = (req, res) => {
+// Root & Healthcheck Endpoints
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+app.get("/", (req, res) => {
   res.json({
     status: "ok",
     message: "SGIP Student Growth Intelligence & Placement Platform API is running",
@@ -40,12 +89,16 @@ const healthHandler = (req, res) => {
     version: "2.0.0",
     roles: ["STUDENT", "FACULTY", "PLACEMENT_COORDINATOR"],
   });
-};
+});
 
-app.get("/", healthHandler);
-app.get("/api", healthHandler);
-app.get("/api/health", healthHandler);
-app.get("/health", healthHandler);
+app.get("/api", (req, res) => {
+  res.json({
+    status: "ok",
+    message: "SGIP API Root",
+    timestamp: new Date(),
+    version: "2.0.0",
+  });
+});
 
 // API Routes Mounting (support both /api/path and /path)
 const routes = [

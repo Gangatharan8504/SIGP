@@ -1,10 +1,35 @@
 import axios from 'axios';
 
+let rawBaseUrl = import.meta.env.VITE_API_URL;
+let baseURL = '/api';
+
+// Check if running on localhost in browser
+const isLocalhost =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '0.0.0.0');
+
+if (rawBaseUrl) {
+  rawBaseUrl = rawBaseUrl.trim().replace(/\/+$/, '');
+  // If running in live production (e.g. on Vercel), ignore localhost VITE_API_URL so requests stay on same origin /api
+  if (!isLocalhost && (rawBaseUrl.includes('localhost') || rawBaseUrl.includes('127.0.0.1'))) {
+    baseURL = '/api';
+  } else if (rawBaseUrl.endsWith('/api')) {
+    baseURL = rawBaseUrl;
+  } else {
+    baseURL = `${rawBaseUrl}/api`;
+  }
+} else {
+  baseURL = '/api';
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000,
 });
 
 api.interceptors.request.use(
@@ -21,11 +46,6 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // Token expired or invalid
-      // localStorage.removeItem('sgip_token');
-      // localStorage.removeItem('sgip_user');
-    }
     return Promise.reject(error);
   }
 );

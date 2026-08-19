@@ -12,8 +12,8 @@ const startServer = async () => {
     await seedDatabase();
     await seedBaselineAssessment();
 
-    app.listen(PORT, () => {
-      console.log(`SGIP Server running on port ${PORT}`);
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`SGIP Server running on port ${PORT} (0.0.0.0)`);
     });
   } catch (err) {
     console.error("Failed to start server:", err);

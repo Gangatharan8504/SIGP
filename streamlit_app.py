@@ -133,7 +133,16 @@ CUSTOM_CSS = """
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
-DEFAULT_GROQ_KEY = os.getenv("GROQ_API_KEY", "")
+def get_secret(key, default=""):
+    try:
+        if hasattr(st, "secrets") and key in st.secrets:
+            return st.secrets[key]
+    except Exception:
+        pass
+    return os.getenv(key, default)
+
+DEFAULT_GROQ_KEY = get_secret("GROQ_API_KEY", "")
+BACKEND_URL = get_secret("BACKEND_URL", "http://localhost:5000")
 
 # ==============================================================================
 # Helper: Strict Binary Text Extractors
