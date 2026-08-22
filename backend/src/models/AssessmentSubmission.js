@@ -31,6 +31,10 @@ const assessmentSubmissionSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    percentile: {
+      type: Number,
+      default: 50,
+    },
     passed: {
       type: Boolean,
       default: false,
@@ -43,12 +47,31 @@ const assessmentSubmissionSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    ipAddress: {
+      type: String,
+      default: "127.0.0.1",
+    },
+    browserUsed: {
+      type: String,
+      default: "Chrome",
+    },
+    tabSwitches: {
+      type: Number,
+      default: 0,
+    },
+    warningCount: {
+      type: Number,
+      default: 0,
+    },
     sectionScores: {
-      aptitude: { score: { type: Number, default: 0 }, maxScore: { type: Number, default: 10 } },
-      reasoning: { score: { type: Number, default: 0 }, maxScore: { type: Number, default: 10 } },
-      verbal: { score: { type: Number, default: 0 }, maxScore: { type: Number, default: 10 } },
-      pseudoCode: { score: { type: Number, default: 0 }, maxScore: { type: Number, default: 10 } },
-      coding: { score: { type: Number, default: 0 }, maxScore: { type: Number, default: 20 } },
+      type: mongoose.Schema.Types.Mixed,
+      default: {
+        Aptitude: { score: 0, maxScore: 10, avgScore: 5.32, topScore: 10, leastScore: 0 },
+        Reasoning: { score: 0, maxScore: 10, avgScore: 6.15, topScore: 10, leastScore: 0 },
+        Verbal: { score: 0, maxScore: 10, avgScore: 5.80, topScore: 10, leastScore: 0 },
+        "Pseudo Code": { score: 0, maxScore: 10, avgScore: 4.90, topScore: 10, leastScore: 0 },
+        Coding: { score: 0, maxScore: 20, avgScore: 8.50, topScore: 20, leastScore: 0 },
+      },
     },
     answers: [
       {
@@ -66,6 +89,17 @@ const assessmentSubmissionSchema = new mongoose.Schema(
     timeSpentSeconds: {
       type: Number,
       default: 0,
+    },
+    aiRecommendations: {
+      strengths: [String],
+      weaknesses: [String],
+      actionableTips: [String],
+      verdict: String,
+    },
+    improvementMetrics: {
+      previousScore: Number,
+      scoreDelta: Number,
+      percentageChange: Number,
     },
     startTime: {
       type: Date,

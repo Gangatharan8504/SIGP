@@ -56,7 +56,10 @@ export const ragApi = {
 export const examProctorApi = {
   startSession: (data) => api.post('/exam-proctor/session/start', data),
   logEvent: (data) => api.post('/exam-proctor/events/log', data),
+  autoSave: (data) => api.post('/exam-proctor/autosave', data),
   submitSecureExam: (data) => api.post('/exam-proctor/submit', data),
+  getHistory: (assessmentId) => api.get(`/exam-proctor/history/${assessmentId}`),
+  getFacultyAnalytics: (assessmentId) => api.get(`/exam-proctor/faculty/analytics/${assessmentId}`),
 };
 
 export const skillApi = {
