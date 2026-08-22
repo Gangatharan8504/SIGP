@@ -223,8 +223,128 @@ const sendProfileChangeEmail = async ({ to, name, changes = [] }) => {
   });
 };
 
+/**
+ * Transactional Technical & Soft Skills Matrix Change Notification
+ */
+const sendSkillMatrixEmail = async ({ to, name, actionType = "ADDED", skill, previousValues = null }) => {
+  const appUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const timestamp = new Date().toLocaleString();
+
+  const isSoftSkill =
+    (skill.category || "").toLowerCase().includes("soft") ||
+    (skill.category || "").toLowerCase().includes("aptitude") ||
+    (skill.category || "").toLowerCase().includes("communication");
+  const skillTypeLabel = isSoftSkill ? "Soft Skill / Behavioral Competency" : "Technical Core Skill";
+
+  let actionTitle = "Skill Added to Matrix";
+  let actionColor = "#059669";
+  let badgeText = "NEW SKILL REGISTERED";
+
+  if (actionType === "UPDATED") {
+    actionTitle = "Skill Proficiency Updated";
+    actionColor = "#2563eb";
+    badgeText = "SKILL RATING MODIFIED";
+  } else if (actionType === "DELETED") {
+    actionTitle = "Skill Removed from Matrix";
+    actionColor = "#e11d48";
+    badgeText = "SKILL DELETED";
+  }
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /><title>${actionTitle}</title></head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 25px 0;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <tr>
+            <td style="background-color: #e11d48; padding: 26px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">SGIP SKILLS MATRIX</h1>
+              <p style="margin: 4px 0 0; color: #ffe4e6; font-size: 12px; font-weight: 500;">Technical &amp; Soft Skills Competency Intelligence</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px;">
+              <div style="display: inline-block; background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; color: #9f1239; margin-bottom: 12px;">
+                ${badgeText}
+              </div>
+              <h2 style="margin: 0 0 12px; color: #0f172a; font-size: 17px; font-weight: 700;">${actionTitle}</h2>
+              <p style="margin: 0 0 20px; font-size: 13px; color: #475569; line-height: 1.6;">
+                Hello <strong>${name}</strong>, your SGIP Technical &amp; Soft Skills Matrix was modified on <strong>${timestamp}</strong>. Below are the registered competency details:
+              </p>
+
+              <table border="0" cellpadding="10" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px;">
+                <tr>
+                  <td width="35%" style="font-size: 12px; font-weight: 600; color: #64748b;">Skill Name:</td>
+                  <td width="65%" style="font-size: 13px; font-weight: 700; color: #0f172a;">${skill.skillName}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; border-top: 1px solid #e2e8f0;">Category / Domain:</td>
+                  <td style="font-size: 13px; font-weight: 600; color: #0f172a; border-top: 1px solid #e2e8f0;">${skill.category || "Technical"} (${skillTypeLabel})</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; border-top: 1px solid #e2e8f0;">Proficiency Tier:</td>
+                  <td style="font-size: 13px; font-weight: 700; color: ${actionColor}; border-top: 1px solid #e2e8f0;">
+                    ${skill.proficiency || "Intermediate"}
+                    ${previousValues && previousValues.proficiency && previousValues.proficiency !== skill.proficiency ? `<span style="font-size: 11px; color: #94a3b8; text-decoration: line-through;"> (was ${previousValues.proficiency})</span>` : ""}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; border-top: 1px solid #e2e8f0;">Self Assessment Rating:</td>
+                  <td style="font-size: 13px; font-weight: 700; color: #d97706; border-top: 1px solid #e2e8f0;">
+                    ${skill.selfRating || 3} / 5 Stars
+                    ${previousValues && previousValues.selfRating && previousValues.selfRating !== skill.selfRating ? `<span style="font-size: 11px; color: #94a3b8; text-decoration: line-through;"> (was ${previousValues.selfRating}/5)</span>` : ""}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; border-top: 1px solid #e2e8f0;">Assessment Verification:</td>
+                  <td style="font-size: 13px; font-weight: 700; color: ${skill.verifiedViaAssessment ? "#059669" : "#64748b"}; border-top: 1px solid #e2e8f0;">
+                    ${skill.verifiedViaAssessment ? `✓ Verified by Proctored Exam (${skill.verifiedScore}%)` : "Self-Reported (Take Assessment to Verify)"}
+                  </td>
+                </tr>
+              </table>
+
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 25px 0 10px;">
+                <tr>
+                  <td align="center">
+                    <a href="${appUrl}/skills" target="_blank" style="background-color: #e11d48; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 28px; border-radius: 8px; display: inline-block;">
+                      View Full Skills Matrix &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 30px; text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #94a3b8;">
+                &copy; ${new Date().getFullYear()} SGIP Placement Intelligence System. Automated Competency Audit.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = `SGIP SKILLS MATRIX UPDATE\nHello ${name},\nYour skills matrix was updated on ${timestamp}:\nAction: ${actionTitle}\nSkill: ${skill.skillName} (${skill.category})\nProficiency: ${skill.proficiency}\nRating: ${skill.selfRating}/5\n\nReview at: ${appUrl}/skills`;
+
+  return await sendEmail({
+    to,
+    subject: `Skills Matrix Notification: ${actionTitle} - ${skill.skillName}`,
+    text,
+    html,
+  });
+};
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
   sendProfileChangeEmail,
+  sendSkillMatrixEmail,
 };
+
