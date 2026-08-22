@@ -34,7 +34,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { label: 'AI Skill Gap Diagnostic', path: '/skill-gap', icon: Target },
     { label: 'Personalized Roadmap', path: '/learning-plan', icon: BookOpen },
     { label: 'Faculty Assignments', path: '/assignments', icon: FileCheck },
-    { label: 'Quizzes & Secure Exams', path: '/assessments', icon: Clock },
+    { label: 'Mock Assessments & Exams', path: '/secure-exam/pattern-test', icon: Clock },
     { label: 'Coding Compiler & LeetCode', path: '/compiler', icon: Code2 },
     { label: 'Projects & Hackathons', path: '/projects', icon: FolderGit2 },
     { label: 'Resume ATS Engine', path: '/resume-analyzer', icon: FileText },

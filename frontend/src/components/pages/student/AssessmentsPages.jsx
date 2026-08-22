@@ -225,43 +225,36 @@ export const AssessmentsPage = () => {
         </div>
       </div>
 
-      {/* Mandatory 42-Question Baseline Assessment Hero Card */}
-      {assessments.some((a) => a.isBaselineAssessment || a.title.includes("42-Question")) && (
-        <div className="glass-card rounded-3xl p-6 sm:p-8 border-2 border-rose-500/40 bg-gradient-to-r from-rose-950/40 via-slate-900/80 to-pink-950/40 shadow-2xl space-y-4 relative overflow-hidden">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1 rounded-full bg-rose-500 text-white font-black text-xs uppercase tracking-wider animate-pulse">
-                  Mandatory Baseline
-                </span>
-                <Badge variant="emerald">5 Core Sections • 42 Questions</Badge>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-white">
-                42-Question Placement Readiness Baseline Assessment
-              </h2>
-              <p className="text-xs sm:text-sm text-rose-200/90 max-w-2xl leading-relaxed">
-                Section-timed diagnostic across <strong>Aptitude (10m)</strong>, <strong>Reasoning (10m)</strong>, <strong>Verbal (10m)</strong>, <strong>Pseudo Code (10m)</strong>, and <strong>Coding (20m)</strong>. Required to establish official placement eligibility.
-              </p>
+      {/* Full Pattern Mock Assessment Hero Banner */}
+      <div className="glass-card rounded-3xl p-6 sm:p-8 border-2 border-rose-500/40 bg-gradient-to-r from-rose-950/40 via-slate-900/80 to-pink-950/40 shadow-2xl space-y-4 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-rose-500 text-white font-black text-xs uppercase tracking-wider animate-pulse">
+                Official Mock Assessment
+              </span>
+              <Badge variant="emerald">5 Core Sections &bull; 42 Questions &bull; 96 Marks</Badge>
             </div>
-
-            {(() => {
-              const baselineExam = assessments.find((a) => a.isBaselineAssessment || a.title.includes("42-Question"));
-              return baselineExam ? (
-                <Link to={`/secure-exam/${baselineExam._id}`} className="shrink-0 w-full md:w-auto">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    icon={Sparkles}
-                    className="w-full md:w-auto font-black shadow-xl shadow-rose-600/40 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600"
-                  >
-                    Start 42-Q Baseline Exam (60 Mins)
-                  </Button>
-                </Link>
-              ) : null;
-            })()}
+            <h2 className="text-xl sm:text-2xl font-black text-white">
+              22.08.2026_ +Full Pattern Mock Placement Assessment
+            </h2>
+            <p className="text-xs sm:text-sm text-rose-200/90 max-w-2xl leading-relaxed">
+              Section-timed proctored benchmark: <strong>Aptitude (10m)</strong>, <strong>Reasoning (10m)</strong>, <strong>Verbal (10m)</strong>, <strong>Pseudo Code (10m)</strong>, and <strong>Coding (20m)</strong> with live camera &amp; screen share proctoring.
+            </p>
           </div>
+
+          <Link to="/secure-exam/pattern-test" className="shrink-0 w-full md:w-auto">
+            <Button
+              variant="primary"
+              size="lg"
+              icon={Sparkles}
+              className="w-full md:w-auto font-black shadow-xl shadow-rose-600/40 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600"
+            >
+              Launch Pattern Exam (60 Mins)
+            </Button>
+          </Link>
         </div>
-      )}
+      </div>
 
       {/* Available Assessments Grid */}
       <div className="space-y-4">
@@ -329,10 +322,10 @@ export const AssessmentsPage = () => {
                   {/* Meta Chips */}
                   <div className="flex items-center justify-between text-xs text-rose-300 light:text-rose-800 pt-3 border-t border-rose-500/15">
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-rose-400" /> {item.durationMinutes} Mins
+                      <Clock className="w-3.5 h-3.5 text-rose-400" /> {item.durationMinutes || 60} Mins
                     </span>
                     <span className="flex items-center gap-1">
-                      <Award className="w-3.5 h-3.5 text-emerald-400" /> {item.totalMarks} Marks
+                      <Award className="w-3.5 h-3.5 text-emerald-400" /> {item.totalMarks || 96} Marks
                     </span>
                     <span className="flex items-center gap-1 font-mono text-[11px]">
                       <ShieldCheck className="w-3.5 h-3.5 text-pink-400" /> Max 3
@@ -341,14 +334,14 @@ export const AssessmentsPage = () => {
                 </div>
 
                 <div className="pt-2">
-                  <Link to={item.isSecureExamMode ? `/secure-exam/${item._id}` : `/assessments/${item._id}`}>
+                  <Link to={`/secure-exam/${item._id}`}>
                     <Button
                       variant="primary"
                       size="md"
                       className="w-full font-bold shadow-md shadow-rose-600/25"
                       icon={ArrowRight}
                     >
-                      {item.isSecureExamMode ? 'Start Proctored Test' : 'Start Assessment'}
+                      Start Proctored Test
                     </Button>
                   </Link>
                 </div>

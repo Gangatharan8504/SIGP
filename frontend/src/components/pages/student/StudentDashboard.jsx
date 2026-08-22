@@ -125,9 +125,9 @@ export const StudentDashboard = () => {
           </p>
 
           <div className="flex flex-wrap gap-2.5 pt-2 justify-center md:justify-start">
-            <Link to="/assessments">
+            <Link to="/secure-exam/pattern-test">
               <Button variant="primary" size="sm" icon={Sparkles} className="font-bold shadow-md shadow-rose-600/30">
-                {scores.assessmentScore !== null ? "Take Assessment" : "Take Baseline Assessment"}
+                {scores.assessmentScore !== null ? "Take Mock Assessment" : "Take Baseline Assessment"}
               </Button>
             </Link>
             <Link to="/resume-analyzer">
