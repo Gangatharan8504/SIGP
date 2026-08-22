@@ -178,29 +178,53 @@ const register = async (req, res) => {
 // @route   POST /api/auth/login
 const login = async (req, res) => {
   try {
-    const email = req.body.email || req.body[0];
-    const password = req.body.password || req.body[1];
+    const rawEmail = req.body?.email || req.body?.[0];
+    const rawPassword = req.body?.password || req.body?.[1];
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: "Please provide an email and password" });
+    if (!rawEmail || !rawPassword) {
+      return res.status(400).json({ success: false, message: "Please provide both an email and password." });
     }
+
+    const email = String(rawEmail).toLowerCase().trim();
+    const password = String(rawPassword);
 
     const user = await User.findOne({ email }).select("+password");
     if (!user) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
+      return res.status(401).json({
+        success: false,
+        message: "No account found with this email. Please click 'Create student account' to register.",
+      });
     }
 
-    const isMatch = await user.matchPassword(password);
+    if (!user.password) {
+      return res.status(401).json({
+        success: false,
+        message: "Account security credentials missing. Please register or reset password.",
+      });
+    }
+
+    let isMatch = false;
+    try {
+      isMatch = await user.matchPassword(password);
+    } catch (pwErr) {
+      console.warn("Password compare error:", pwErr.message);
+      isMatch = false;
+    }
+
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
+      return res.status(401).json({ success: false, message: "Invalid email or password." });
     }
 
-    await ActivityLog.create({
-      userId: user._id,
-      action: "User Logged In",
-      category: "AUTH",
-      details: `Logged in as ${user.role}`,
-    });
+    try {
+      await ActivityLog.create({
+        userId: user._id,
+        action: "User Logged In",
+        category: "AUTH",
+        details: `Logged in as ${user.role} (${user.email})`,
+      });
+    } catch (logErr) {
+      console.warn("ActivityLog creation skipped during login:", logErr.message);
+    }
 
     const token = user.getSignedJwtToken();
 
@@ -216,7 +240,10 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Authentication service error. Please try again.",
+    });
   }
 };
 
