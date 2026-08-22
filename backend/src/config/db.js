@@ -7,7 +7,7 @@ if (!cached) {
 }
 
 const connectDB = async () => {
-  if (cached.conn && mongoose.connection.readyState >= 1) {
+  if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
   }
 
@@ -16,10 +16,13 @@ const connectDB = async () => {
     process.env.MONGO_URI ||
     "mongodb+srv://carrier-pilot:admin123@cluster0.kkdvuh4.mongodb.net/sgip_db?retryWrites=true&w=majority";
 
-  if (!cached.promise) {
+  if (!cached.promise || mongoose.connection.readyState === 0) {
     const opts = {
-      bufferCommands: true,
-      serverSelectionTimeoutMS: 10000,
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 8000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 10,
     };
 
     cached.promise = mongoose.connect(uri, opts).then((mongooseInstance) => {
@@ -33,6 +36,7 @@ const connectDB = async () => {
     return cached.conn;
   } catch (e) {
     cached.promise = null;
+    cached.conn = null;
     console.error("MongoDB connection failed:", e.message);
     throw e;
   }

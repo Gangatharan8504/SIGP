@@ -4,8 +4,7 @@ const seedDatabase = require("../backend/src/seeds/seedData");
 
 let isSeeded = false;
 
-// Global Serverless DB Connection Middleware
-app.use(async (req, res, next) => {
+module.exports = async (req, res) => {
   try {
     await connectDB();
     if (!isSeeded) {
@@ -15,7 +14,5 @@ app.use(async (req, res, next) => {
   } catch (err) {
     console.error("Vercel DB connection error:", err.message);
   }
-  next();
-});
-
-module.exports = app;
+  return app(req, res);
+};

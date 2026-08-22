@@ -72,6 +72,25 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
+// Serverless Database Connection Assurance Middleware
+const connectDB = require("./config/db");
+app.use(async (req, res, next) => {
+  // Allow healthcheck to return immediately
+  if (req.path === "/health" || req.path === "/api/health") {
+    return next();
+  }
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error("Database connection error in middleware:", err.message);
+    return res.status(503).json({
+      success: false,
+      message: "Database connection initializing. Please retry in a few seconds.",
+    });
+  }
+});
+
 // Root & Healthcheck Endpoints
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
