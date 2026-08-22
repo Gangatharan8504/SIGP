@@ -206,6 +206,9 @@ const submitAssessment = async (req, res) => {
       userId: req.user._id,
       action: "Completed Assessment",
       category: "ASSESSMENT",
+      details: `${assessment.title}: ${percentage}% (${passed ? "PASSED" : "FAILED"})`,
+    });
+
     // Format time spent (HH:MM:SS)
     const hrs = Math.floor(timeSpentSeconds / 3600);
     const mins = Math.floor((timeSpentSeconds % 3600) / 60);

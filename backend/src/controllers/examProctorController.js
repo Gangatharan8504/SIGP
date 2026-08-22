@@ -241,6 +241,8 @@ const submitSecureExam = async (req, res) => {
       sourceTitle: `${assessment.title} (Attempt ${attemptNumber})`,
       sourceRefId: assessment._id.toString(),
       details: `Score: ${earnedMarks}/${totalPossibleMarks} (${percentage}%), Integrity: ${integrityScore}%`,
+    });
+
     // Format time spent (HH:MM:SS)
     const hrs = Math.floor(timeSpentSeconds / 3600);
     const mins = Math.floor((timeSpentSeconds % 3600) / 60);
