@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Sparkles, Lock, Mail, ArrowRight, ShieldCheck, UserCheck, Key, User } from 'lucide-react';
-import { Button, Input, Badge } from '../common/UIElements';
+import { Sparkles, Lock, Mail, ArrowRight } from 'lucide-react';
+import { Button, Input } from '../common/UIElements';
 
 export const LoginPage = () => {
   const { login } = useAuth();
@@ -13,12 +13,13 @@ export const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const executeLogin = async (loginEmail, loginPassword) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const data = await login({ email: loginEmail, password: loginPassword });
+      const data = await login({ email: email.trim(), password });
       const userRole = (data?.user?.role || '').toLowerCase();
 
       if (userRole === 'faculty') {
@@ -34,24 +35,13 @@ export const LoginPage = () => {
       if (serverMsg) {
         setError(serverMsg);
       } else if (err.message?.includes('Network Error')) {
-        setError('Network Error: Unable to reach the server. Please check your internet connection or try again.');
+        setError('Network Error: Unable to connect to backend server. Please verify your connection.');
       } else {
-        setError('Invalid email or password. Please check your credentials or register a new account.');
+        setError('Invalid email or password. Please verify your credentials or create a new student account.');
       }
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    await executeLogin(email, password);
-  };
-
-  const handleQuickDemo = (demoEmail, demoPassword) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    executeLogin(demoEmail, demoPassword);
   };
 
   return (
@@ -118,33 +108,7 @@ export const LoginPage = () => {
             </Button>
           </form>
 
-          {/* 1-Click Fast Demo Logins */}
-          <div className="space-y-2 pt-2 border-t border-rose-500/20">
-            <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-              <span>Fast 1-Click Sign-In:</span>
-              <Badge variant="rose" size="sm">Demo Accounts</Badge>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('gangatharan8504@gmail.com', 'password123')}
-                className="p-2 rounded-xl bg-slate-900/80 hover:bg-rose-500/20 border border-rose-500/20 text-slate-200 hover:text-white text-xs font-bold transition text-left flex items-center gap-1.5 cursor-pointer"
-              >
-                <User className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                <span className="truncate">Student Login</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('coordinator@demo.com', 'password123')}
-                className="p-2 rounded-xl bg-slate-900/80 hover:bg-pink-500/20 border border-pink-500/20 text-slate-200 hover:text-white text-xs font-bold transition text-left flex items-center gap-1.5 cursor-pointer"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-pink-400 shrink-0" />
-                <span className="truncate">Coordinator</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="pt-2 text-center text-xs text-rose-200/70 light:text-rose-700">
+          <div className="pt-3 border-t border-rose-500/20 text-center text-xs text-rose-200/70 light:text-rose-700">
             Don't have an account?{' '}
             <Link
               to="/register"

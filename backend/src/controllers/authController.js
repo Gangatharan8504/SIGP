@@ -45,105 +45,138 @@ const register = async (req, res) => {
       githubUrl,
       linkedinUrl,
       portfolioUrl,
-    } = req.body;
+    } = req.body || {};
 
-    const userExists = await User.findOne({ email });
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Please fill in all required fields (Full Name, Email, and Password).",
+      });
+    }
+
+    const cleanEmail = String(email).toLowerCase().trim();
+    const cleanName = String(name).trim();
+    const userRole = String(role || "student").toLowerCase().trim();
+
+    const userExists = await User.findOne({ email: cleanEmail });
     if (userExists) {
-      return res.status(400).json({ success: false, message: "User already exists with this email" });
+      return res.status(400).json({
+        success: false,
+        message: "An account already exists with this email. Please sign in instead.",
+      });
     }
 
     const user = await User.create({
-      name,
-      email,
-      password,
-      role: (role || "student").toLowerCase(),
+      name: cleanName,
+      email: cleanEmail,
+      password: String(password),
+      role: userRole,
     });
 
-    if (user.role.toLowerCase() === "student") {
-      await StudentProfile.create({
-        user: user._id,
-        fullName: name,
-        registerNumber: registerNumber || rollNumber || "",
-        rollNumber: rollNumber || registerNumber || `SGIP-${Math.floor(1000 + Math.random() * 9000)}`,
-        department: department || branch || "Computer Science and Engineering",
-        batch: batch || "2022-2026",
-        batchYear: Number(batchYear) || 2026,
-        graduationYear: Number(graduationYear) || 2026,
-        collegeName: collegeName || "Institute of Technology & Engineering",
-        targetRole: targetRole || "Full Stack Software Engineer",
-        phone: phone || "",
-        dob: dob || "",
-        profilePhoto: profilePhoto || "",
-        linkedinUrl: linkedinUrl || codingProfiles.linkedin || "",
-        githubUrl: githubUrl || codingProfiles.github || "",
-        portfolioUrl: portfolioUrl || codingProfiles.portfolio || "",
-        codingProfiles: {
-          leetcode: codingProfiles.leetcode || "",
-          codechef: codingProfiles.codechef || "",
-          hackerrank: codingProfiles.hackerrank || "",
-          github: githubUrl || codingProfiles.github || "",
-          linkedin: linkedinUrl || codingProfiles.linkedin || "",
-          portfolio: portfolioUrl || codingProfiles.portfolio || "",
-        },
-        // Real score initialization: clean null states (unearned until real assessments/resumes are uploaded)
-        readinessScore: null,
-        skillScore: null,
-        resumeScore: null,
-        assessmentScore: null,
-        codingScore: null,
-        projectsScore: null,
-        consistencyScore: null,
-      });
+    if (userRole === "student") {
+      try {
+        await StudentProfile.create({
+          user: user._id,
+          fullName: cleanName,
+          registerNumber: registerNumber || rollNumber || "",
+          rollNumber: rollNumber || registerNumber || `SGIP-${Math.floor(1000 + Math.random() * 9000)}`,
+          department: department || branch || "Computer Science and Engineering",
+          batch: batch || `${(Number(graduationYear) || 2027) - 4}-${Number(graduationYear) || 2027}`,
+          batchYear: Number(batchYear) || Number(graduationYear) || 2027,
+          graduationYear: Number(graduationYear) || Number(batchYear) || 2027,
+          collegeName: collegeName || "Institute of Technology & Engineering",
+          targetRole: targetRole || "Full Stack Software Engineer",
+          phone: phone || "",
+          dob: dob || "",
+          profilePhoto: profilePhoto || "",
+          linkedinUrl: linkedinUrl || codingProfiles.linkedin || "",
+          githubUrl: githubUrl || codingProfiles.github || "",
+          portfolioUrl: portfolioUrl || codingProfiles.portfolio || "",
+          codingProfiles: {
+            leetcode: codingProfiles.leetcode || "",
+            codechef: codingProfiles.codechef || "",
+            hackerrank: codingProfiles.hackerrank || "",
+            github: githubUrl || codingProfiles.github || "",
+            linkedin: linkedinUrl || codingProfiles.linkedin || "",
+            portfolio: portfolioUrl || codingProfiles.portfolio || "",
+          },
+          readinessScore: null,
+          skillScore: null,
+          resumeScore: null,
+          assessmentScore: null,
+          codingScore: null,
+          projectsScore: null,
+          consistencyScore: null,
+        });
+      } catch (profErr) {
+        console.warn("StudentProfile creation notice:", profErr.message);
+      }
 
-      await Academic.create({
-        userId: user._id,
-        tenthPercentage: tenthPercentage ? Number(tenthPercentage) : null,
-        tenthBoard: tenthBoard || "",
-        twelfthOrDiplomaPercentage: twelfthOrDiplomaPercentage ? Number(twelfthOrDiplomaPercentage) : null,
-        twelfthBoard: twelfthBoard || "",
-        currentDegree: currentDegree || "B.Tech",
-        branch: branch || department || "Computer Science and Engineering",
-        currentSemester: currentSemester ? Number(currentSemester) : null,
-        cgpa: cgpa ? Number(cgpa) : null,
-        activeBacklogs: Number(activeBacklogs) || 0,
-        clearedArrears: Number(clearedArrears) || 0,
-        historyOfArrears: (Number(activeBacklogs) || 0) + (Number(clearedArrears) || 0),
-        standingArrears: Number(activeBacklogs) || 0,
-        gapYears: Number(gapYears) || 0,
-        graduationYear: Number(graduationYear) || Number(batchYear) || 2026,
-        academicPerformanceScore: cgpa ? Math.min(100, Math.round((Number(cgpa) / 10) * 100)) : null,
-      });
+      try {
+        await Academic.create({
+          userId: user._id,
+          tenthPercentage: tenthPercentage ? Number(tenthPercentage) : null,
+          tenthBoard: tenthBoard || "",
+          twelfthOrDiplomaPercentage: twelfthOrDiplomaPercentage ? Number(twelfthOrDiplomaPercentage) : null,
+          twelfthBoard: twelfthBoard || "",
+          currentDegree: currentDegree || "B.Tech",
+          branch: branch || department || "Computer Science and Engineering",
+          currentSemester: currentSemester ? Number(currentSemester) : null,
+          cgpa: cgpa ? Number(cgpa) : null,
+          activeBacklogs: Number(activeBacklogs) || 0,
+          clearedArrears: Number(clearedArrears) || 0,
+          historyOfArrears: (Number(activeBacklogs) || 0) + (Number(clearedArrears) || 0),
+          standingArrears: Number(activeBacklogs) || 0,
+          gapYears: Number(gapYears) || 0,
+          graduationYear: Number(graduationYear) || Number(batchYear) || 2027,
+          academicPerformanceScore: cgpa ? Math.min(100, Math.round((Number(cgpa) / 10) * 100)) : null,
+        });
+      } catch (acadErr) {
+        console.warn("Academic record creation notice:", acadErr.message);
+      }
 
       // Save initial skills if provided by student
       if (Array.isArray(skills) && skills.length > 0) {
-        const skillDocs = skills.map((s) => ({
-          userId: user._id,
-          skillName: typeof s === "string" ? s : s.skillName || s.name,
-          category: typeof s === "object" ? s.category || "General" : "General",
-          proficiency: typeof s === "object" ? s.proficiency || "Intermediate" : "Intermediate",
-          selfRating: typeof s === "object" ? s.selfRating || 3 : 3,
-          verifiedScore: null,
-          verifiedViaAssessment: false,
-        }));
-        await StudentSkill.insertMany(skillDocs);
+        try {
+          const skillDocs = skills.map((s) => ({
+            userId: user._id,
+            skillName: typeof s === "string" ? s : s.skillName || s.name,
+            category: typeof s === "object" ? s.category || "General" : "General",
+            proficiency: typeof s === "object" ? s.proficiency || "Intermediate" : "Intermediate",
+            selfRating: typeof s === "object" ? s.selfRating || 3 : 3,
+            verifiedScore: null,
+            verifiedViaAssessment: false,
+          }));
+          await StudentSkill.insertMany(skillDocs);
+        } catch (skillErr) {
+          console.warn("Initial skills insert notice:", skillErr.message);
+        }
       }
 
       // In-app welcome notification
-      await Notification.create({
-        userId: user._id,
-        title: "Welcome to SGIP Placement Platform!",
-        message: "Complete your 42-question baseline assessment and upload your resume to generate your placement readiness score.",
-        type: "system",
-        actionUrl: "/dashboard",
-      });
+      try {
+        await Notification.create({
+          userId: user._id,
+          title: "Welcome to SGIP Placement Platform!",
+          message: "Complete your 42-question baseline assessment and upload your resume to generate your placement readiness score.",
+          type: "system",
+          actionUrl: "/dashboard",
+        });
+      } catch (notifErr) {
+        console.warn("Notification creation notice:", notifErr.message);
+      }
     }
 
-    await ActivityLog.create({
-      userId: user._id,
-      action: "User Registered",
-      category: "AUTH",
-      details: `Registered as ${user.role} (${user.email})`,
-    });
+    try {
+      await ActivityLog.create({
+        userId: user._id,
+        action: "User Registered",
+        category: "AUTH",
+        details: `Registered as ${user.role} (${user.email})`,
+      });
+    } catch (logErr) {
+      console.warn("ActivityLog creation notice:", logErr.message);
+    }
 
     // Send Welcome Email asynchronously
     sendWelcomeEmail({
@@ -170,7 +203,10 @@ const register = async (req, res) => {
     });
   } catch (error) {
     console.error("Register error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Registration failed. Please check the entered data and try again.",
+    });
   }
 };
 

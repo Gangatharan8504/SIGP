@@ -40,9 +40,9 @@ export const RegisterPage = () => {
     rollNumber: '',
     registerNumber: '',
     department: 'Computer Science and Engineering',
-    batch: '2022-2026',
-    batchYear: 2026,
-    graduationYear: 2026,
+    batch: '2023-2027',
+    batchYear: 2027,
+    graduationYear: 2027,
     collegeName: 'Institute of Technology & Engineering',
     // Step 2: Academic
     tenthPercentage: '',
@@ -99,7 +99,7 @@ export const RegisterPage = () => {
     e.preventDefault();
     setError('');
     if (step === 1) {
-      if (!formData.name || !formData.email || !formData.password) {
+      if (!formData.name.trim() || !formData.email.trim() || !formData.password) {
         setError('Please fill in Name, Email, and Password.');
         return;
       }
@@ -130,6 +130,8 @@ export const RegisterPage = () => {
 
       await register({
         ...formData,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
         role: 'student',
         tenthPercentage: formData.tenthPercentage ? Number(formData.tenthPercentage) : null,
         twelfthOrDiplomaPercentage: formData.twelfthOrDiplomaPercentage ? Number(formData.twelfthOrDiplomaPercentage) : null,
@@ -138,21 +140,29 @@ export const RegisterPage = () => {
         activeBacklogs: Number(formData.activeBacklogs) || 0,
         clearedArrears: Number(formData.clearedArrears) || 0,
         gapYears: Number(formData.gapYears) || 0,
-        batchYear: Number(formData.batchYear) || 2026,
-        graduationYear: Number(formData.graduationYear) || 2026,
+        batchYear: Number(formData.batchYear) || 2027,
+        graduationYear: Number(formData.graduationYear) || 2027,
         skills: parsedSkills,
         codingProfiles: {
-          leetcode: formData.leetcode,
-          codechef: formData.codechef,
-          hackerrank: formData.hackerrank,
-          github: formData.githubUrl,
-          linkedin: formData.linkedinUrl,
-          portfolio: formData.portfolioUrl,
+          leetcode: formData.leetcode || '',
+          codechef: formData.codechef || '',
+          hackerrank: formData.hackerrank || '',
+          github: formData.githubUrl || '',
+          linkedin: formData.linkedinUrl || '',
+          portfolio: formData.portfolioUrl || '',
         },
       });
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Registration failed');
+      console.error('Registration error:', err);
+      const serverMsg = err.response?.data?.message;
+      if (serverMsg) {
+        setError(serverMsg);
+      } else if (err.message?.includes('Network Error')) {
+        setError('Network Error: Unable to connect to backend server. Please verify your connection.');
+      } else {
+        setError('Registration failed. Please check the entered data and try again.');
+      }
     } finally {
       setLoading(false);
     }
