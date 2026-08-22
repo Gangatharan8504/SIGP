@@ -7,7 +7,7 @@ if (!cached) {
 }
 
 const connectDB = async () => {
-  if (cached.conn) {
+  if (cached.conn && mongoose.connection.readyState >= 1) {
     return cached.conn;
   }
 
@@ -18,8 +18,8 @@ const connectDB = async () => {
 
   if (!cached.promise) {
     const opts = {
-      bufferCommands: false,
-      serverSelectionTimeoutMS: 8000,
+      bufferCommands: true,
+      serverSelectionTimeoutMS: 10000,
     };
 
     cached.promise = mongoose.connect(uri, opts).then((mongooseInstance) => {

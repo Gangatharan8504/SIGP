@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Sparkles, Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
-import { Button, Input } from '../common/UIElements';
+import { Sparkles, Lock, Mail, ArrowRight, ShieldCheck, UserCheck, Key, User } from 'lucide-react';
+import { Button, Input, Badge } from '../common/UIElements';
 
 export const LoginPage = () => {
   const { login } = useAuth();
@@ -13,13 +13,12 @@ export const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const executeLogin = async (loginEmail, loginPassword) => {
     setError('');
     setLoading(true);
 
     try {
-      const data = await login({ email, password });
+      const data = await login({ email: loginEmail, password: loginPassword });
       const userRole = (data?.user?.role || '').toLowerCase();
 
       if (userRole === 'faculty') {
@@ -30,17 +29,39 @@ export const LoginPage = () => {
         navigate('/dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Invalid email or password');
+      console.error('Login error:', err);
+      const serverMsg = err.response?.data?.message;
+      if (serverMsg) {
+        setError(serverMsg);
+      } else if (err.message?.includes('Network Error')) {
+        setError('Network Error: Unable to reach the server. Please check your internet connection or try again.');
+      } else {
+        setError('Invalid email or password. Please check your credentials or register a new account.');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await executeLogin(email, password);
+  };
+
+  const handleQuickDemo = (demoEmail, demoPassword) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    executeLogin(demoEmail, demoPassword);
   };
 
   return (
     <div className="relative min-h-[85vh] flex items-center justify-center py-10 px-4 overflow-hidden">
       {/* Reddish-Pink Ambient Glow Orbs */}
       <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-gradient-to-br from-rose-600/30 via-pink-600/20 to-transparent blur-3xl pointer-events-none animate-glow-pink" />
-      <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-gradient-to-tr from-pink-600/25 via-red-600/20 to-transparent blur-3xl pointer-events-none animate-glow-pink" style={{ animationDelay: '2s' }} />
+      <div
+        className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-gradient-to-tr from-pink-600/25 via-red-600/20 to-transparent blur-3xl pointer-events-none animate-glow-pink"
+        style={{ animationDelay: '2s' }}
+      />
 
       <div className="relative z-10 w-full max-w-md mx-auto">
         <div className="glass-panel rounded-3xl p-6 sm:p-9 border border-rose-500/20 shadow-2xl shadow-rose-950/40 space-y-6 animate-in fade-in zoom-in-95 duration-300">
@@ -59,12 +80,12 @@ export const LoginPage = () => {
           </div>
 
           {error && (
-            <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-xs text-rose-300 light:text-rose-800 font-medium text-center shadow-lg">
+            <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-xs text-rose-300 light:text-rose-950 font-medium text-center shadow-lg leading-relaxed">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 text-left">
             <Input
               label="Institutional Email"
               type="email"
@@ -90,16 +111,45 @@ export const LoginPage = () => {
               variant="primary"
               size="lg"
               loading={loading}
-              className="w-full bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 hover:from-rose-500 hover:to-pink-500 shadow-xl shadow-rose-600/30 border-0"
+              className="w-full bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 hover:from-rose-500 hover:to-pink-500 shadow-xl shadow-rose-600/30 border-0 font-bold"
               icon={ArrowRight}
             >
               Sign In to SGIP
             </Button>
           </form>
 
-          <div className="pt-3 border-t border-rose-500/20 text-center text-xs text-rose-200/70 light:text-rose-700">
+          {/* 1-Click Fast Demo Logins */}
+          <div className="space-y-2 pt-2 border-t border-rose-500/20">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+              <span>Fast 1-Click Sign-In:</span>
+              <Badge variant="rose" size="sm">Demo Accounts</Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleQuickDemo('gangatharan8504@gmail.com', 'password123')}
+                className="p-2 rounded-xl bg-slate-900/80 hover:bg-rose-500/20 border border-rose-500/20 text-slate-200 hover:text-white text-xs font-bold transition text-left flex items-center gap-1.5 cursor-pointer"
+              >
+                <User className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <span className="truncate">Student Login</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickDemo('coordinator@demo.com', 'password123')}
+                className="p-2 rounded-xl bg-slate-900/80 hover:bg-pink-500/20 border border-pink-500/20 text-slate-200 hover:text-white text-xs font-bold transition text-left flex items-center gap-1.5 cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                <span className="truncate">Coordinator</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-2 text-center text-xs text-rose-200/70 light:text-rose-700">
             Don't have an account?{' '}
-            <Link to="/register" className="text-rose-400 font-bold hover:text-rose-300 light:text-rose-600 hover:underline">
+            <Link
+              to="/register"
+              className="text-rose-400 font-bold hover:text-rose-300 light:text-rose-600 hover:underline"
+            >
               Create student account
             </Link>
           </div>
