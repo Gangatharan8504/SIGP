@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { aiApi, ragApi } from '../../api/apis';
 import {
   Sparkles,
@@ -15,6 +16,15 @@ import {
 import { Button, Badge, Spinner } from './UIElements';
 
 export const AIAssistantDrawer = () => {
+  const location = useLocation();
+  const isExamActive =
+    location.pathname.includes('/secure-exam') ||
+    location.pathname.includes('/exam');
+
+  if (isExamActive) {
+    return null;
+  }
+
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('agent'); // 'agent' | 'rag'
   const [agentType, setAgentType] = useState('Learning Agent');

@@ -341,10 +341,137 @@ const sendSkillMatrixEmail = async ({ to, name, actionType = "ADDED", skill, pre
   });
 };
 
+/**
+ * Transactional Examination Result & Section Score Report Email
+ */
+const sendExamResultEmail = async ({
+  to,
+  name,
+  examTitle,
+  score = 0,
+  maxScore = 96,
+  percentage = 0,
+  passed = false,
+  integrityScore = 100,
+  timeSpentFormatted = "00:00:00",
+  sectionScores = {},
+  attemptNumber = 1,
+}) => {
+  const appUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const timestamp = new Date().toLocaleString();
+
+  const sectionRows = Object.entries(sectionScores).map(([key, val]) => {
+    const formattedName = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+    const earned = typeof val === 'object' ? (val.score || 0) : val;
+    const max = typeof val === 'object' ? (val.maxScore || 20) : 20;
+    return `
+      <tr>
+        <td style="padding: 10px 14px; border-bottom: 1px solid #ffe4e6; font-size: 13px; font-weight: 600; color: #881337;">${formattedName}</td>
+        <td style="padding: 10px 14px; border-bottom: 1px solid #ffe4e6; font-size: 13px; font-weight: 700; color: #0f172a; text-align: center;">${earned.toFixed(2)} / ${max.toFixed(2)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /><title>Exam Score Report: ${examTitle}</title></head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 25px 0;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <tr>
+            <td style="background-color: #e11d48; padding: 28px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800;">SGIP EXAMINATION REPORT</h1>
+              <p style="margin: 4px 0 0; color: #ffe4e6; font-size: 12px; font-weight: 500;">Proctored Assessment Benchmark &amp; Scorecard</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px;">
+              <div style="display: inline-block; background-color: ${passed ? "#ecfdf5" : "#fff1f2"}; border: 1px solid ${passed ? "#a7f3d0" : "#fecdd3"}; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; color: ${passed ? "#065f46" : "#9f1239"}; margin-bottom: 12px;">
+                ${passed ? "BENCHMARK CLEARED" : "EVALUATION COMPLETED"} • ATTEMPT ${attemptNumber} OF 3
+              </div>
+              <h2 style="margin: 0 0 8px; color: #0f172a; font-size: 18px; font-weight: 700;">${examTitle}</h2>
+              <p style="margin: 0 0 20px; font-size: 13px; color: #475569; line-height: 1.6;">
+                Hello <strong>${name}</strong>, your proctored examination attempt has been graded and verified on <strong>${timestamp}</strong>. Below is your official scorecard:
+              </p>
+
+              <!-- Main Score Gauge Box -->
+              <table border="0" cellpadding="15" cellspacing="0" width="100%" style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; margin-bottom: 24px; text-align: center;">
+                <tr>
+                  <td width="33%" style="border-right: 1px solid #fecdd3;">
+                    <div style="font-size: 11px; font-weight: 700; color: #9f1239; text-transform: uppercase;">Total Score</div>
+                    <div style="font-size: 24px; font-weight: 900; color: #e11d48; margin-top: 4px;">${score.toFixed(2)} / ${maxScore.toFixed(2)}</div>
+                    <div style="font-size: 11px; color: #881337; font-weight: 600;">${percentage}% Percentage</div>
+                  </td>
+                  <td width="33%" style="border-right: 1px solid #fecdd3;">
+                    <div style="font-size: 11px; font-weight: 700; color: #065f46; text-transform: uppercase;">Integrity Score</div>
+                    <div style="font-size: 24px; font-weight: 900; color: #059669; margin-top: 4px;">${integrityScore}%</div>
+                    <div style="font-size: 11px; color: #047857; font-weight: 600;">Proctored Audit</div>
+                  </td>
+                  <td width="33%">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Time Spent</div>
+                    <div style="font-size: 18px; font-weight: 800; color: #1e293b; margin-top: 6px;">${timeSpentFormatted}</div>
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Active Session</div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Section Breakdown Table -->
+              <h3 style="margin: 0 0 10px; font-size: 14px; font-weight: 700; color: #0f172a;">Section-Wise Performance Breakdown</h3>
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 22px;">
+                <thead>
+                  <tr style="background-color: #ffe4e6; text-align: left;">
+                    <th style="padding: 10px 14px; font-size: 12px; color: #9f1239;">Section Name</th>
+                    <th style="padding: 10px 14px; font-size: 12px; color: #9f1239; text-align: center;">Score Earned</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${sectionRows}
+                </tbody>
+              </table>
+
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 25px 0 10px;">
+                <tr>
+                  <td align="center">
+                    <a href="${appUrl}/assessments" target="_blank" style="background-color: #e11d48; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 13px 30px; border-radius: 8px; display: inline-block;">
+                      View Assessment History &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 30px; text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #94a3b8;">
+                &copy; ${new Date().getFullYear()} SGIP Institutional Placement Intelligence System. Automated Score Dispatch.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = `SGIP EXAM SCORE REPORT\nExam: ${examTitle}\nScore: ${score.toFixed(2)} / ${maxScore.toFixed(2)} (${percentage}%)\nIntegrity: ${integrityScore}%\nTime Spent: ${timeSpentFormatted}\n\nView at: ${appUrl}/assessments`;
+
+  return await sendEmail({
+    to,
+    subject: `Exam Score Report: ${examTitle} - Score ${score.toFixed(2)}/${maxScore.toFixed(2)} (${percentage}%)`,
+    text,
+    html,
+  });
+};
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
   sendProfileChangeEmail,
   sendSkillMatrixEmail,
+  sendExamResultEmail,
 };
 

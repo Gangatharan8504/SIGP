@@ -4,6 +4,7 @@ const ExamIntegrityEvent = require("../models/ExamIntegrityEvent");
 const StudentProfile = require("../models/StudentProfile");
 const StudentSkill = require("../models/StudentSkill");
 const { emitStudentActivityEvent } = require("../services/eventService");
+const { sendExamResultEmail } = require("../services/emailService");
 
 // @desc    Start / Verify examination session with max 3 attempt check
 // @route   POST /api/exam-proctor/session/start
@@ -240,7 +241,26 @@ const submitSecureExam = async (req, res) => {
       sourceTitle: `${assessment.title} (Attempt ${attemptNumber})`,
       sourceRefId: assessment._id.toString(),
       details: `Score: ${earnedMarks}/${totalPossibleMarks} (${percentage}%), Integrity: ${integrityScore}%`,
-    });
+    // Format time spent (HH:MM:SS)
+    const hrs = Math.floor(timeSpentSeconds / 3600);
+    const mins = Math.floor((timeSpentSeconds % 3600) / 60);
+    const secs = timeSpentSeconds % 60;
+    const timeSpentFormatted = `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+
+    // Dispatch automated score report email
+    sendExamResultEmail({
+      to: req.user.email,
+      name: req.user.name,
+      examTitle: assessment.title,
+      score: earnedMarks,
+      maxScore: totalPossibleMarks,
+      percentage,
+      passed,
+      integrityScore,
+      timeSpentFormatted,
+      sectionScores,
+      attemptNumber,
+    }).catch((err) => console.error("[Exam Result Email Error]", err.message));
 
     return res.status(201).json({
       success: true,

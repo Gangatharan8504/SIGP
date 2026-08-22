@@ -5,6 +5,7 @@ const StudentProfile = require("../models/StudentProfile");
 const StudentSkill = require("../models/StudentSkill");
 const ActivityLog = require("../models/ActivityLog");
 const { generateAssessmentQuestionsWithAI } = require("../services/groqService");
+const { sendExamResultEmail } = require("../services/emailService");
 
 // @desc    Get all assessments
 // @route   GET /api/assessments
@@ -205,8 +206,26 @@ const submitAssessment = async (req, res) => {
       userId: req.user._id,
       action: "Completed Assessment",
       category: "ASSESSMENT",
-      details: `${assessment.title}: ${percentage}% (${passed ? "PASSED" : "FAILED"})`,
-    });
+    // Format time spent (HH:MM:SS)
+    const hrs = Math.floor(timeSpentSeconds / 3600);
+    const mins = Math.floor((timeSpentSeconds % 3600) / 60);
+    const secs = timeSpentSeconds % 60;
+    const timeSpentFormatted = `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+
+    sendExamResultEmail({
+      to: req.user.email,
+      name: req.user.name,
+      examTitle: assessment.title,
+      score: earnedMarks,
+      maxScore: totalPossibleMarks,
+      percentage,
+      passed,
+      integrityScore: 100,
+      timeSpentFormatted,
+      sectionScores: {
+        "Technical Evaluation": { score: earnedMarks, maxScore: totalPossibleMarks },
+      },
+    }).catch((err) => console.error("[Assessment Email Error]", err.message));
 
     return res.json({
       success: true,
