@@ -501,9 +501,9 @@ export const SkillsPage = () => {
         onClose={() => setIsModalOpen(false)}
         title={isEditing ? `Edit Skill: ${currentSkill.skillName}` : 'Add Skill to Competency Matrix'}
       >
-        <form onSubmit={handleSaveSkill} className="space-y-4">
+        <form onSubmit={handleSaveSkill} className="space-y-4 text-left">
           <div>
-            <label className="text-xs font-bold text-slate-300 light:text-slate-800 mb-1 block">
+            <label className="text-xs font-bold text-slate-200 light:text-slate-800 mb-1.5 block">
               Skill Name *
             </label>
             <input
@@ -514,7 +514,7 @@ export const SkillsPage = () => {
               placeholder="e.g. Java, React.js, Problem-Solving, Teamwork..."
               required
               disabled={isEditing}
-              className="w-full bg-slate-900 light:bg-white border border-rose-500/30 text-sm rounded-xl p-3 text-white light:text-slate-900 outline-none focus:border-rose-500"
+              className="w-full bg-slate-900/90 light:bg-white border border-rose-500/30 text-sm rounded-xl p-3 text-white light:text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition"
             />
             <datalist id="master-skills-datalist">
               {masterSkills.map((ms) => (
@@ -525,13 +525,13 @@ export const SkillsPage = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1 text-left">
-              <label className="text-xs font-bold text-slate-300 light:text-slate-800">
+              <label className="text-xs font-bold text-slate-200 light:text-slate-800">
                 Skill Domain / Category
               </label>
               <select
                 value={currentSkill.category}
                 onChange={(e) => setCurrentSkill({ ...currentSkill, category: e.target.value })}
-                className="bg-slate-900 light:bg-white border border-rose-500/30 text-xs rounded-xl p-3 text-white light:text-slate-900 outline-none focus:border-rose-500"
+                className="bg-slate-900/90 light:bg-white border border-rose-500/30 text-xs rounded-xl p-3 text-white light:text-slate-900 font-medium outline-none focus:ring-2 focus:ring-rose-500"
               >
                 <optgroup label="Technical Engineering">
                   <option value="Frontend">Frontend Development</option>
@@ -551,7 +551,7 @@ export const SkillsPage = () => {
             </div>
 
             <div className="flex flex-col gap-1 text-left">
-              <label className="text-xs font-bold text-slate-300 light:text-slate-800">
+              <label className="text-xs font-bold text-slate-200 light:text-slate-800">
                 Proficiency Level
               </label>
               <select
@@ -559,7 +559,7 @@ export const SkillsPage = () => {
                 onChange={(e) =>
                   setCurrentSkill({ ...currentSkill, proficiency: e.target.value })
                 }
-                className="bg-slate-900 light:bg-white border border-rose-500/30 text-xs rounded-xl p-3 text-white light:text-slate-900 outline-none focus:border-rose-500"
+                className="bg-slate-900/90 light:bg-white border border-rose-500/30 text-xs rounded-xl p-3 text-white light:text-slate-900 font-medium outline-none focus:ring-2 focus:ring-rose-500"
               >
                 <option value="Beginner">Beginner (Foundations)</option>
                 <option value="Intermediate">Intermediate (Practiced)</option>
@@ -570,7 +570,7 @@ export const SkillsPage = () => {
           </div>
 
           <div>
-            <div className="flex justify-between text-xs font-bold text-slate-300 light:text-slate-800 mb-1">
+            <div className="flex justify-between text-xs font-bold text-slate-200 light:text-slate-800 mb-1.5">
               <span>Self-Assessment Star Rating:</span>
               <span className="text-amber-400 font-bold">{currentSkill.selfRating} / 5 Stars</span>
             </div>
@@ -585,25 +585,31 @@ export const SkillsPage = () => {
               }
               className="w-full accent-rose-500 cursor-pointer"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+            <div className="flex justify-between text-[11px] text-slate-400 light:text-slate-600 font-medium mt-1">
               <span>1★ Novice</span>
               <span>3★ Competent</span>
               <span>5★ Master</span>
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-950/60 light:bg-slate-100 border border-rose-500/20 text-[11px] text-slate-400 flex items-center gap-2">
-            <Mail className="w-4 h-4 text-rose-400 shrink-0" />
+          {/* Email Notification Notice Box */}
+          <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-200 light:text-rose-950 font-medium flex items-center gap-2.5 shadow-sm">
+            <Mail className="w-4 h-4 text-rose-400 light:text-rose-600 shrink-0" />
             <span>
-              Saving will automatically recalculate your readiness score and dispatch an audited diff email.
+              Saving will automatically recalculate your readiness score and dispatch an audited diff email to your inbox.
             </span>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" size="sm">
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              className="font-bold shadow-lg shadow-rose-600/30 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 border-0"
+            >
               {isEditing ? 'Update Skill' : 'Save to Matrix'}
             </Button>
           </div>

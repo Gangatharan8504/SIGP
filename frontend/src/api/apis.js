@@ -62,6 +62,9 @@ export const examProctorApi = {
 export const skillApi = {
   getAll: (params) => api.get('/skills', { params }),
   getCategorySummary: () => api.get('/skills/category-summary'),
+  getMySkills: () => api.get('/skills/my-skills'),
+  saveMySkill: (data) => api.post('/skills/my-skills', data),
+  deleteMySkill: (id) => api.delete(`/skills/my-skills/${id}`),
 };
 
 export const assessmentApi = {
