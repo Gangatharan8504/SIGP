@@ -466,6 +466,128 @@ const recommendCareers = async () => {
   ];
 };
 
+/**
+ * Dynamic 42-Question Full Pattern Mock Assessment Generator (Groq AI)
+ * Always maintains fixed 42-question structure:
+ * - Aptitude: 10 Qs
+ * - Reasoning: 10 Qs
+ * - Verbal: 10 Qs
+ * - Pseudo Code: 10 Qs
+ * - Coding: 2 Qs
+ * Difficulty rule: Attempt 1 (Easy+Medium), Attempt 2 (Medium), Attempt 3 (Medium+Hard)
+ */
+const generateFullPatternExamAI = async ({
+  attemptNumber = 1,
+  targetRole = "Full Stack Software Engineer",
+  skillGaps = [],
+  previousScores = null,
+}) => {
+  const difficultyMap = {
+    1: "Easy and Intermediate",
+    2: "Intermediate",
+    3: "Intermediate and Hard",
+  };
+  const targetDifficulty = difficultyMap[attemptNumber] || "Intermediate";
+
+  const prompt = `You are a Principal Placement Examiner for Tier-1 technology companies.
+Generate a dynamic, adaptive 42-question placement pattern exam for target role: "${targetRole}".
+Candidate Attempt Level: Attempt ${attemptNumber} of 3 (Difficulty constraint: ${targetDifficulty}).
+Target Areas for reinforcement: ${skillGaps.join(", ") || "Data Structures, Logical Reasoning, Quantitative Speed"}.
+
+Ensure standard technical depth and valid JSON output.
+Structure required:
+{
+  "title": "Full Pattern Mock Assessment",
+  "difficultyProfile": "${attemptNumber === 1 ? "Easy + Medium" : attemptNumber === 2 ? "Medium" : "Medium + Hard"}",
+  "totalQuestions": 42,
+  "durationMinutes": 60,
+  "sections": {
+    "aptitude": [
+      {
+        "title": "Question concept",
+        "description": "Clear numerical or word problem",
+        "difficulty": "${attemptNumber === 1 ? "Easy" : "Medium"}",
+        "marks": 1,
+        "options": [{"text": "A", "isCorrect": false}, {"text": "B", "isCorrect": true}, {"text": "C", "isCorrect": false}, {"text": "D", "isCorrect": false}],
+        "explanation": "Brief mathematical explanation"
+      }
+    ],
+    "reasoning": [
+      {
+        "title": "Logic pattern",
+        "description": "Analytical or inductive logic puzzle",
+        "difficulty": "${attemptNumber === 1 ? "Easy" : "Medium"}",
+        "marks": 1,
+        "options": [{"text": "A", "isCorrect": false}, {"text": "B", "isCorrect": true}, {"text": "C", "isCorrect": false}, {"text": "D", "isCorrect": false}],
+        "explanation": "Logical deduction step"
+      }
+    ],
+    "verbal": [
+      {
+        "title": "Verbal context",
+        "description": "Sentence correction, analogy, or reading comprehension",
+        "difficulty": "${attemptNumber === 1 ? "Easy" : "Medium"}",
+        "marks": 1,
+        "options": [{"text": "A", "isCorrect": false}, {"text": "B", "isCorrect": true}, {"text": "C", "isCorrect": false}, {"text": "D", "isCorrect": false}],
+        "explanation": "Grammatical rationale"
+      }
+    ],
+    "pseudoCode": [
+      {
+        "title": "Algorithmic Trace",
+        "description": "Predict output or recursion stack",
+        "difficulty": "${attemptNumber === 1 ? "Easy" : "Medium"}",
+        "marks": 1,
+        "codeSnippet": "function compute(n) { ... }",
+        "options": [{"text": "A", "isCorrect": false}, {"text": "B", "isCorrect": true}, {"text": "C", "isCorrect": false}, {"text": "D", "isCorrect": false}],
+        "explanation": "Trace details"
+      }
+    ],
+    "coding": [
+      {
+        "title": "Algorithmic Challenge",
+        "description": "Problem statement with constraints and examples",
+        "difficulty": "${attemptNumber === 1 ? "Medium" : "Hard"}",
+        "marks": 10,
+        "starterCode": {
+          "java": "class Solution { ... }",
+          "python": "def solution(...):",
+          "cpp": "class Solution { ... };",
+          "javascript": "function solution(...) { ... }"
+        },
+        "testCases": [
+          {"input": "sample input", "output": "expected output", "isHidden": false}
+        ]
+      }
+    ]
+  }
+}`;
+
+  const messages = [
+    { role: "system", content: "You are an elite placement exam author. Always output valid, parseable JSON only without Markdown backticks." },
+    { role: "user", content: prompt },
+  ];
+
+  try {
+    const rawResponse = await executeGroqChat(messages, {
+      temperature: 0.3,
+      max_tokens: 4000,
+      response_format: { type: "json_object" },
+    });
+
+    if (rawResponse) {
+      const parsed = JSON.parse(rawResponse);
+      if (parsed.sections && (parsed.sections.aptitude || parsed.sections.coding)) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn("[Groq AI Exam Generation] Fallback to structured question bank:", err.message);
+  }
+
+  return null;
+};
+
 module.exports = {
   runAIAgent,
   analyzeSkillGap,
@@ -473,4 +595,5 @@ module.exports = {
   generateLearningPlan,
   recommendCareers,
   generateAssessmentQuestionsWithAI,
+  generateFullPatternExamAI,
 };

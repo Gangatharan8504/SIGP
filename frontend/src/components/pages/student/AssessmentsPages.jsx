@@ -226,19 +226,19 @@ export const AssessmentsPage = () => {
       </div>
 
       {/* Full Pattern Mock Assessment Hero Banner */}
-      <div className="glass-card rounded-3xl p-6 sm:p-8 border-2 border-rose-500/40 bg-gradient-to-r from-rose-950/40 via-slate-900/80 to-pink-950/40 shadow-2xl space-y-4 relative overflow-hidden">
+      <div className="glass-card rounded-3xl p-6 sm:p-8 border-2 border-indigo-500/40 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 shadow-2xl space-y-4 relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full bg-rose-500 text-white font-black text-xs uppercase tracking-wider animate-pulse">
+              <span className="px-3 py-1 rounded-full bg-indigo-600 text-white font-black text-xs uppercase tracking-wider">
                 Official Mock Assessment
               </span>
               <Badge variant="emerald">5 Core Sections &bull; 42 Questions &bull; 96 Marks</Badge>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white">
-              22.08.2026_ +Full Pattern Mock Placement Assessment
+              Full Pattern Mock Assessment
             </h2>
-            <p className="text-xs sm:text-sm text-rose-200/90 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
               Section-timed proctored benchmark: <strong>Aptitude (10m)</strong>, <strong>Reasoning (10m)</strong>, <strong>Verbal (10m)</strong>, <strong>Pseudo Code (10m)</strong>, and <strong>Coding (20m)</strong> with live camera &amp; screen share proctoring.
             </p>
           </div>
@@ -248,9 +248,9 @@ export const AssessmentsPage = () => {
               variant="primary"
               size="lg"
               icon={Sparkles}
-              className="w-full md:w-auto font-black shadow-xl shadow-rose-600/40 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600"
+              className="w-full md:w-auto font-black shadow-xl bg-indigo-600 hover:bg-indigo-500 text-white border-0"
             >
-              Launch Pattern Exam (60 Mins)
+              Launch Mock Exam (60 Mins)
             </Button>
           </Link>
         </div>

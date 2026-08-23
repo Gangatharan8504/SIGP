@@ -5,9 +5,9 @@ const StudentProfile = require("../models/StudentProfile");
 const StudentSkill = require("../models/StudentSkill");
 const { emitStudentActivityEvent } = require("../services/eventService");
 const { sendExamResultEmail } = require("../services/emailService");
-const { chatWithGroq } = require("../services/groqService");
+const { generateFullPatternExamAI } = require("../services/groqService");
 
-// @desc    Start / Verify examination session with max 3 attempt check
+// @desc    Start / Verify examination session with max 3 attempt check & dynamic AI question engine
 // @route   POST /api/exam-proctor/session/start
 const startExamSession = async (req, res) => {
   try {
@@ -16,67 +16,88 @@ const startExamSession = async (req, res) => {
 
     let assessment = await Assessment.findById(assessmentId).populate("questions");
     if (!assessment) {
-      // Return default placement pattern benchmark if ID is virtual
       assessment = await Assessment.findOne({ isBaselineAssessment: true }).populate("questions");
-      if (!assessment) {
-        return res.status(404).json({ success: false, message: "Assessment not found" });
-      }
     }
 
-    const previousAttempts = await AssessmentSubmission.find({ assessmentId: assessment._id, userId });
+    const targetAssessmentId = assessment?._id || "full-pattern-test";
+    const previousAttempts = await AssessmentSubmission.find({
+      $or: [{ assessmentId: targetAssessmentId }, { userId }],
+    }).sort({ attemptNumber: 1 });
+
     const currentAttemptCount = previousAttempts.length;
 
-    if (currentAttemptCount >= (assessment.maxAttempts || 3)) {
+    if (currentAttemptCount >= 3) {
       return res.status(403).json({
         success: false,
-        message: `Maximum allowed attempts (${assessment.maxAttempts || 3}) reached for this examination. Attempts exhausted.`,
+        message: "Maximum allowed attempts (3 of 3) reached for this examination benchmark. Attempts exhausted.",
         attemptsExhausted: true,
       });
     }
 
     const nextAttemptNumber = currentAttemptCount + 1;
+    const difficultyProfile =
+      nextAttemptNumber === 1 ? "Easy + Medium" : nextAttemptNumber === 2 ? "Medium" : "Medium + Hard";
+
+    // Clean title - never show dates in title
+    const cleanTitle = "Full Pattern Mock Assessment";
+
+    // Attempt AI dynamic generation
+    const studentProfile = await StudentProfile.findOne({ user: userId });
+    const aiExam = await generateFullPatternExamAI({
+      attemptNumber: nextAttemptNumber,
+      targetRole: studentProfile?.targetRole || "Full Stack Software Engineer",
+      skillGaps: ["DSA", "System Design", "Aptitude Speed"],
+    }).catch(() => null);
 
     // Log Start and Consent Events
     await ExamIntegrityEvent.create({
-      assessmentId: assessment._id,
+      assessmentId: assessment?._id || targetAssessmentId,
       attemptNumber: nextAttemptNumber,
       studentId: userId,
       eventType: "EXAM_START",
       severity: "LOW",
-      details: `Candidate started attempt ${nextAttemptNumber} of ${assessment.maxAttempts || 3}.`,
+      details: `Candidate initiated Attempt ${nextAttemptNumber} of 3 (${difficultyProfile}).`,
     });
 
     if (consentAccepted) {
       await ExamIntegrityEvent.create({
-        assessmentId: assessment._id,
+        assessmentId: assessment?._id || targetAssessmentId,
         attemptNumber: nextAttemptNumber,
         studentId: userId,
         eventType: "CONSENT_ACCEPTED",
         severity: "LOW",
-        details: "Candidate accepted proctoring terms, camera monitoring, screen share, and data retention policy.",
+        details: "Candidate accepted proctoring terms, camera monitoring, screen share, and privacy consent.",
       });
     }
 
-    if (screenShareGranted !== undefined) {
+    if (screenShareGranted) {
       await ExamIntegrityEvent.create({
-        assessmentId: assessment._id,
+        assessmentId: assessment?._id || targetAssessmentId,
         attemptNumber: nextAttemptNumber,
         studentId: userId,
-        eventType: screenShareGranted ? "SCREEN_SHARE_ALLOWED" : "SCREEN_SHARE_DECLINED",
+        eventType: "SCREEN_SHARE_ALLOWED",
         severity: "LOW",
-        details: screenShareGranted
-          ? "Candidate granted full desktop screen sharing."
-          : "Candidate declined screen share.",
+        details: "Candidate granted entire desktop screen share telemetry.",
       });
     }
 
     return res.json({
       success: true,
-      assessment,
+      assessment: {
+        _id: targetAssessmentId,
+        title: cleanTitle,
+        description: "Official 5-Section Placement Assessment (Aptitude, Reasoning, Verbal, Pseudo Code, Coding)",
+        durationMinutes: 60,
+        totalMarks: 96,
+        passingMarks: 50,
+        maxAttempts: 3,
+        difficultyProfile,
+      },
+      dynamicExam: aiExam || null,
       attemptNumber: nextAttemptNumber,
-      remainingAttempts: (assessment.maxAttempts || 3) - nextAttemptNumber,
-      isSecureExamMode: assessment.isSecureExamMode !== false,
-      sectionTimings: assessment.sectionTimings || [
+      remainingAttempts: 3 - nextAttemptNumber,
+      isSecureExamMode: true,
+      sectionTimings: [
         { sectionName: "Aptitude", durationMinutes: 10, questionCount: 10 },
         { sectionName: "Reasoning", durationMinutes: 10, questionCount: 10 },
         { sectionName: "Verbal", durationMinutes: 10, questionCount: 10 },
@@ -90,19 +111,20 @@ const startExamSession = async (req, res) => {
   }
 };
 
-// @desc    Log real-time proctoring integrity event
+// @desc    Log real-time proctoring integrity event (DevTools, Tab Switch, Camera, Screen Share)
 // @route   POST /api/exam-proctor/events/log
 const logIntegrityEvent = async (req, res) => {
   try {
-    const { assessmentId, attemptNumber, eventType, severity, details } = req.body;
+    const { assessmentId, attemptNumber = 1, eventType, severity = "MEDIUM", details, durationSeconds = 0 } = req.body;
 
     const event = await ExamIntegrityEvent.create({
-      assessmentId: assessmentId || req.body.assessmentId,
-      attemptNumber: attemptNumber || 1,
+      assessmentId: assessmentId || "full-pattern-test",
+      attemptNumber: Number(attemptNumber) || 1,
       studentId: req.user._id,
       eventType: eventType || "TAB_SWITCH",
-      severity: severity || "MEDIUM",
-      details: details || `Recorded ${eventType} during exam session.`,
+      severity,
+      durationSeconds: Number(durationSeconds) || 0,
+      details: details || `Recorded ${eventType} during examination session.`,
     });
 
     return res.status(201).json({ success: true, event });
@@ -115,8 +137,6 @@ const logIntegrityEvent = async (req, res) => {
 // @route   POST /api/exam-proctor/autosave
 const autoSaveSession = async (req, res) => {
   try {
-    const { assessmentId, attemptNumber = 1, answers = {}, codingAnswers = {}, activeSection, timeLeft } = req.body;
-
     return res.json({
       success: true,
       savedAt: new Date().toISOString(),
@@ -127,12 +147,12 @@ const autoSaveSession = async (req, res) => {
   }
 };
 
-// @desc    Submit secure exam, calculate section scores, integrity rating, and dispatch email scorecard
+// @desc    Submit secure exam and grade with integrity scoring & section analysis
 // @route   POST /api/exam-proctor/submit
 const submitSecureExam = async (req, res) => {
   try {
     const {
-      assessmentId,
+      assessmentId = "full-pattern-test",
       attemptNumber = 1,
       answers = [],
       timeSpentSeconds = 0,
@@ -140,6 +160,9 @@ const submitSecureExam = async (req, res) => {
       ipAddress = "127.0.0.1",
       browserUsed = "Chrome",
       tabSwitches = 0,
+      devToolsCount = 0,
+      cameraInterruptionCount = 0,
+      networkInterruptionCount = 0,
       startTime,
     } = req.body;
     const userId = req.user._id;
@@ -192,17 +215,17 @@ const submitSecureExam = async (req, res) => {
           section: qSection,
         });
 
-        // Add to section totals
-        const targetSec = Object.keys(sectionScores).find(
-          (k) => k.toLowerCase() === qSection.toLowerCase() || (k === "Aptitude" && qSection.toLowerCase().includes("analy"))
-        ) || "Aptitude";
+        const targetSec =
+          Object.keys(sectionScores).find(
+            (k) => k.toLowerCase() === qSection.toLowerCase() || (k === "Aptitude" && qSection.toLowerCase().includes("analy"))
+          ) || "Aptitude";
 
         if (sectionScores[targetSec]) {
           sectionScores[targetSec].score += marksEarned;
         }
       });
     } else {
-      // Default sample simulation if benchmark run directly
+      // Standard sample simulation
       earnedMarks = 23;
       sectionScores.Aptitude.score = 5;
       sectionScores.Reasoning.score = 7;
@@ -212,29 +235,49 @@ const submitSecureExam = async (req, res) => {
     }
 
     const percentage = Math.min(100, Math.round((earnedMarks / totalPossibleMarks) * 100));
-    const passed = earnedMarks >= (assessment?.passingMarks || 40);
+    const passed = earnedMarks >= 40;
 
-    // Calculate Integrity Score based on recorded violations
-    const integrityEvents = await ExamIntegrityEvent.find({
-      assessmentId: assessment?._id || assessmentId,
+    // Calculate Integrity Score (starts at 100, deducted per event)
+    const recordedEvents = await ExamIntegrityEvent.find({
       studentId: userId,
       attemptNumber,
     });
 
-    let integrityScore = 100;
-    integrityEvents.forEach((evt) => {
-      if (evt.severity === "CRITICAL") integrityScore -= 25;
-      else if (evt.severity === "HIGH") integrityScore -= 10;
-      else if (evt.severity === "MEDIUM") integrityScore -= 5;
-      else if (evt.severity === "LOW") integrityScore -= 2;
+    let calculatedIntegrity = 100;
+    let devToolsDetections = Number(devToolsCount) || 0;
+    let tabSwitchEvents = Number(tabSwitches) || 0;
+    let cameraDrops = Number(cameraInterruptionCount) || 0;
+    let networkDrops = Number(networkInterruptionCount) || 0;
+
+    recordedEvents.forEach((evt) => {
+      if (evt.eventType === "DEVTOOLS_OPENED") {
+        calculatedIntegrity -= 25;
+        devToolsDetections++;
+      } else if (evt.eventType === "SCREEN_SHARE_STOPPED" || evt.eventType === "SCREEN_SHARE_INTERRUPTED") {
+        calculatedIntegrity -= 20;
+      } else if (evt.eventType === "CAMERA_DISABLED" || evt.eventType === "CAMERA_ABSENCE") {
+        calculatedIntegrity -= 15;
+        cameraDrops++;
+      } else if (evt.eventType === "FULLSCREEN_EXIT") {
+        calculatedIntegrity -= 10;
+      } else if (evt.eventType === "TAB_SWITCH" || evt.eventType === "FOCUS_LOSS") {
+        calculatedIntegrity -= 5;
+        tabSwitchEvents++;
+      } else if (evt.eventType === "MULTIPLE_FACES") {
+        calculatedIntegrity -= 10;
+      }
     });
-    integrityScore = Math.max(20, Math.min(100, integrityScore));
+
+    const finalIntegrityScore = Math.max(10, Math.min(100, calculatedIntegrity));
+
+    // Determine Review Status (Never auto-fail)
+    let reviewStatus = "VERIFIED_CLEAN";
+    if (finalIntegrityScore < 75 || devToolsDetections > 0) {
+      reviewStatus = "NEEDS_FACULTY_REVIEW";
+    }
 
     // Calculate Improvement Metrics from Previous Attempt
-    const previousSubmissions = await AssessmentSubmission.find({
-      assessmentId: assessment?._id || assessmentId,
-      userId,
-    }).sort({ attemptNumber: -1 });
+    const previousSubmissions = await AssessmentSubmission.find({ userId }).sort({ attemptNumber: -1 });
 
     let improvementMetrics = { previousScore: 0, scoreDelta: 0, percentageChange: 0 };
     if (previousSubmissions.length > 0) {
@@ -247,45 +290,23 @@ const submitSecureExam = async (req, res) => {
       };
     }
 
-    // Dynamic Percentile Rank
-    const percentile = Math.min(99, Math.max(15, Math.round(percentage * 0.95 + (integrityScore > 90 ? 4 : 0))));
+    const percentile = Math.min(99, Math.max(15, Math.round(percentage * 0.95 + (finalIntegrityScore > 90 ? 4 : 0))));
 
-    // AI Performance Recommendation Engine
-    let aiRecommendations = {
-      strengths: ["Verbal Reasoning & Grammar", "Aptitude Mathematical Concepts"],
-      weaknesses: ["Algorithmic Coding Time Complexity", "Recursive Pseudo-Code Tracing"],
+    // AI Performance Recommendations
+    const aiRecommendations = {
+      strengths: ["Verbal Reasoning & Comprehension", "Speed Quantitative Concepts"],
+      weaknesses: ["Two-Pointer & Sliding Window Coding", "Recursive Pseudo Code Analysis"],
       actionableTips: [
         "Solve 10 Medium Array and Hash Map problems in the Coding Sandbox.",
-        "Review recursion base conditions and call stack visualizers.",
-        "Practice daily speed math drills for time-constrained analytical questions.",
+        "Review recursion call stacks and return values in Pseudo Code.",
+        "Maintain consistent fullscreen discipline during proctored benchmarks.",
       ],
       verdict: passed
         ? "Tier-1 Placement Competency Benchmark Cleared"
         : "Targeted Topic Reinforcement Recommended Before Next Campus Placement Drive",
     };
 
-    try {
-      const prompt = `Analyze this placement assessment attempt:
-Score: ${earnedMarks}/${totalPossibleMarks} (${percentage}%)
-Section Scores: Aptitude: ${sectionScores.Aptitude.score}/${sectionScores.Aptitude.maxScore}, Reasoning: ${sectionScores.Reasoning.score}/${sectionScores.Reasoning.maxScore}, Verbal: ${sectionScores.Verbal.score}/${sectionScores.Verbal.maxScore}, Pseudo Code: ${sectionScores["Pseudo Code"].score}/${sectionScores["Pseudo Code"].maxScore}, Coding: ${sectionScores.Coding.score}/${sectionScores.Coding.maxScore}.
-Integrity Score: ${integrityScore}%.
-Return a brief JSON object with:
-"strengths": string array (2 items),
-"weaknesses": string array (2 items),
-"actionableTips": string array (3 items),
-"verdict": string.`;
-
-      const aiResponse = await chatWithGroq([
-        { role: "system", content: "You are an elite Placement Director. Output pure JSON." },
-        { role: "user", content: prompt },
-      ]);
-      const parsedAI = JSON.parse(aiResponse.replace(/```json|```/g, "").trim());
-      if (parsedAI.strengths) aiRecommendations = parsedAI;
-    } catch (aiErr) {
-      console.warn("AI recommendation fallback used:", aiErr.message);
-    }
-
-    // Create Submission Record
+    // Store Submission Record
     const submission = await AssessmentSubmission.create({
       assessmentId: assessment?._id || assessmentId,
       userId,
@@ -295,12 +316,16 @@ Return a brief JSON object with:
       percentage,
       percentile,
       passed,
-      integrityScore,
+      integrityScore: finalIntegrityScore,
+      reviewStatus,
       screenShareGranted,
       ipAddress,
       browserUsed,
-      tabSwitches,
-      warningCount: integrityEvents.filter((e) => e.severity === "HIGH" || e.severity === "CRITICAL").length,
+      tabSwitches: tabSwitchEvents,
+      devToolsCount: devToolsDetections,
+      cameraInterruptionCount: cameraDrops,
+      networkInterruptionCount: networkDrops,
+      warningCount: recordedEvents.filter((e) => e.severity === "HIGH" || e.severity === "CRITICAL").length,
       sectionScores,
       answers: gradedAnswers,
       timeSpentSeconds,
@@ -311,27 +336,14 @@ Return a brief JSON object with:
       completedAt: new Date(),
     });
 
-    // Update Student Profile Scores
-    if (assessment?.isBaselineAssessment || assessment?.category === "Baseline Benchmark") {
-      await StudentProfile.findOneAndUpdate(
-        { user: userId },
-        {
-          assessmentScore: percentage,
-          readinessScore: Math.round(percentage * 0.8 + integrityScore * 0.2),
-        }
-      );
-    }
-
-    // Trigger Activity Event
-    await emitStudentActivityEvent({
-      userId,
-      eventType: "ASSESSMENT",
-      skillNames: assessment?.skillTags || ["Aptitude", "Logical Reasoning", "Coding"],
-      score: percentage,
-      sourceTitle: `${assessment?.title || "Mock Assessment"} (Attempt ${attemptNumber})`,
-      sourceRefId: assessment?._id ? assessment._id.toString() : "",
-      details: `Score: ${earnedMarks}/${totalPossibleMarks} (${percentage}%), Integrity: ${integrityScore}%`,
-    });
+    // Update Student Profile
+    await StudentProfile.findOneAndUpdate(
+      { user: userId },
+      {
+        assessmentScore: percentage,
+        readinessScore: Math.round(percentage * 0.8 + finalIntegrityScore * 0.2),
+      }
+    );
 
     // Format time spent (HH:MM:SS)
     const hrs = Math.floor(timeSpentSeconds / 3600);
@@ -339,16 +351,16 @@ Return a brief JSON object with:
     const secs = timeSpentSeconds % 60;
     const timeSpentFormatted = `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 
-    // Dispatch automated score report email
+    // Dispatch automated scorecard email
     sendExamResultEmail({
       to: req.user.email,
       name: req.user.name,
-      examTitle: assessment?.title || "22.08.2026_ +Full Pattern Test",
+      examTitle: "Full Pattern Mock Assessment",
       score: earnedMarks,
       maxScore: totalPossibleMarks,
       percentage,
       passed,
-      integrityScore,
+      integrityScore: finalIntegrityScore,
       timeSpentFormatted,
       sectionScores,
       attemptNumber,
@@ -358,21 +370,26 @@ Return a brief JSON object with:
       success: true,
       submission,
       feedback: {
+        title: "Full Pattern Mock Assessment",
         percentage,
         percentile,
         passed,
         earnedMarks,
         totalPossibleMarks,
         attemptNumber,
-        integrityScore,
-        remainingAttempts: (assessment?.maxAttempts || 3) - attemptNumber,
+        integrityScore: finalIntegrityScore,
+        reviewStatus,
+        remainingAttempts: Math.max(0, 3 - attemptNumber),
         timeSpentSeconds,
         timeSpentFormatted,
         sectionScores,
         aiRecommendations,
         improvementMetrics,
         ipAddress,
-        tabSwitches,
+        tabSwitches: tabSwitchEvents,
+        devToolsCount: devToolsDetections,
+        cameraInterruptionCount: cameraDrops,
+        networkInterruptionCount: networkDrops,
         browserUsed,
       },
     });
@@ -382,28 +399,35 @@ Return a brief JSON object with:
   }
 };
 
-// @desc    Get student attempt history and improvement progression
+// @desc    Get student attempt history with dates & score progression
 // @route   GET /api/exam-proctor/history/:assessmentId
 const getAttemptHistory = async (req, res) => {
   try {
     const { assessmentId } = req.params;
     const userId = req.user._id;
 
-    const submissions = await AssessmentSubmission.find({
-      assessmentId,
-      userId,
-    }).sort({ attemptNumber: 1 });
+    const submissions = await AssessmentSubmission.find({ userId }).sort({ attemptNumber: 1 });
 
-    const integrityEvents = await ExamIntegrityEvent.find({
-      assessmentId,
-      studentId: userId,
-    }).sort({ createdAt: -1 });
+    const integrityEvents = await ExamIntegrityEvent.find({ studentId: userId }).sort({ createdAt: -1 });
+
+    const formattedAttempts = submissions.map((sub) => ({
+      attemptNumber: sub.attemptNumber,
+      completedDate: sub.completedAt ? new Date(sub.completedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Recent",
+      score: `${sub.percentage}%`,
+      rawScore: `${sub.score.toFixed(2)} / ${sub.maxScore.toFixed(2)}`,
+      integrityScore: `${sub.integrityScore}%`,
+      reviewStatus: sub.reviewStatus || "VERIFIED_CLEAN",
+      timeSpent: sub.timeSpentSeconds ? `${Math.floor(sub.timeSpentSeconds / 60)} mins` : "45 mins",
+      devToolsCount: sub.devToolsCount || 0,
+      tabSwitches: sub.tabSwitches || 0,
+    }));
 
     return res.json({
       success: true,
       attemptsCount: submissions.length,
       maxAttempts: 3,
       attemptsRemaining: Math.max(0, 3 - submissions.length),
+      attempts: formattedAttempts,
       submissions,
       integrityEvents,
     });
@@ -412,13 +436,11 @@ const getAttemptHistory = async (req, res) => {
   }
 };
 
-// @desc    Faculty / Coordinator view for examination batch analytics and integrity audits
+// @desc    Faculty / Coordinator review panel for batch examination analytics & integrity audits
 // @route   GET /api/exam-proctor/faculty/analytics/:assessmentId
 const getFacultyExamAnalytics = async (req, res) => {
   try {
-    const { assessmentId } = req.params;
-
-    const submissions = await AssessmentSubmission.find({ assessmentId })
+    const submissions = await AssessmentSubmission.find({})
       .populate("userId", "name email rollNumber department")
       .sort({ createdAt: -1 });
 
@@ -427,9 +449,9 @@ const getFacultyExamAnalytics = async (req, res) => {
     const topScore = totalAttempts > 0 ? Math.max(...submissions.map((s) => s.percentage)) : 0;
     const passCount = submissions.filter((s) => s.passed).length;
     const passPercentage = totalAttempts > 0 ? Math.round((passCount / totalAttempts) * 100) : 0;
+    const needsReviewCount = submissions.filter((s) => s.reviewStatus === "NEEDS_FACULTY_REVIEW" || s.integrityScore < 75).length;
 
     const flaggedEvents = await ExamIntegrityEvent.find({
-      assessmentId,
       severity: { $in: ["HIGH", "CRITICAL"] },
     })
       .populate("studentId", "name email rollNumber")
@@ -443,6 +465,7 @@ const getFacultyExamAnalytics = async (req, res) => {
         avgScore: Number(avgScore),
         topScore,
         passPercentage,
+        needsReviewCount,
         flaggedEventsCount: flaggedEvents.length,
       },
       submissions,

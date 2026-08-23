@@ -23,7 +23,11 @@ const examIntegrityEventSchema = new mongoose.Schema(
       enum: [
         "TAB_SWITCH",
         "WINDOW_BLUR",
+        "WINDOW_MINIMIZE",
+        "FOCUS_LOSS",
         "FULLSCREEN_EXIT",
+        "DEVTOOLS_OPENED",
+        "INSPECT_ELEMENT",
         "COPY_PASTE",
         "CLIPBOARD_OPERATION",
         "CAMERA_ABSENCE",
@@ -49,6 +53,10 @@ const examIntegrityEventSchema = new mongoose.Schema(
       type: String,
       enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
       default: "MEDIUM",
+    },
+    durationSeconds: {
+      type: Number,
+      default: 0,
     },
     details: {
       type: String,

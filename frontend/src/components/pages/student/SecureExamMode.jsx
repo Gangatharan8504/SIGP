@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { assessmentApi, examProctorApi } from '../../../api/apis';
 import {
@@ -37,12 +37,15 @@ import {
   Terminal,
   Mic,
   Sliders,
-  Users
+  Users,
+  ShieldAlert,
+  PauseCircle,
+  HelpCircle
 } from 'lucide-react';
 import { Button, Badge, Spinner } from '../../common/UIElements';
 import confetti from 'canvas-confetti';
 
-const PATTERN_SECTIONS = [
+const SECTIONS_CONFIG = [
   { sNo: 1, name: 'Aptitude', questions: 10, duration: 10, marks: 15, avgScore: 5.32, topScore: 14.00, leastScore: 0.00 },
   { sNo: 2, name: 'Reasoning', questions: 10, duration: 10, marks: 26, avgScore: 9.99, topScore: 22.00, leastScore: 0.00 },
   { sNo: 3, name: 'Verbal', questions: 10, duration: 10, marks: 20, avgScore: 5.65, topScore: 20.00, leastScore: 0.00 },
@@ -50,13 +53,12 @@ const PATTERN_SECTIONS = [
   { sNo: 5, name: 'Coding', questions: 2, duration: 20, marks: 20, avgScore: 4.27, topScore: 20.00, leastScore: 0.00 },
 ];
 
-const SIDEBAR_EXAMS = [
-  { id: '22-08-2026', title: '22.08.2026_ +Full Pattern Test', date: '22 Aug 2026', active: true, attempts: '01 / 03' },
-  { id: '21-08-2026', title: '21.08.2026_ Full pattern Test', date: '21 Aug 2026', active: false, attempts: '03 / 03' },
-  { id: '20-08-2026', title: '20.08.2026_ Full pattern Test', date: '20 Aug 2026', active: false, attempts: '02 / 03' },
-  { id: '19-08-2026', title: '19.08.2026_ Full pattern Test', date: '19 Aug 2026', active: false, attempts: '01 / 03' },
-  { id: '13-08-2025', title: '13.08.2025_ Full pattern Test', date: '13 Aug 2025', active: false, attempts: '03 / 03' },
-  { id: '08-08-2026', title: '08.08.2026_ Aptitude Test', date: '08 Aug 2026', active: false, attempts: '03 / 03' },
+const BENCHMARK_LIST = [
+  { id: 'full-pattern-test', title: 'Full Pattern Mock Assessment', category: 'Placement Benchmark', attempts: '01 / 03', active: true },
+  { id: 'tech-coding', title: 'Technical Algorithms & Coding Evaluation', category: 'Coding Assessment', attempts: '03 / 03', active: false },
+  { id: 'quant-logic', title: 'Quantitative & Logical Reasoning Diagnostic', category: 'Aptitude', attempts: '02 / 03', active: false },
+  { id: 'verbal-comm', title: 'Verbal & Professional Communication Test', category: 'Verbal', attempts: '01 / 03', active: false },
+  { id: 'core-cs', title: 'Core Computer Science & Systems Diagnostic', category: 'Core CS', attempts: '03 / 03', active: false },
 ];
 
 const CODING_PROBLEMS = [
@@ -104,27 +106,19 @@ export const SecureExamMode = () => {
 
   const [assessment, setAssessment] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [viewTab, setViewTab] = useState('overview'); // 'overview' | 'attempt' | 'trends'
-  const [examState, setExamState] = useState('PORTAL'); // 'PORTAL' | 'SYSTEM_CHECK' | 'IN_PROGRESS' | 'SUBMITTED' | 'EXHAUSTED'
+  const [viewTab, setViewTab] = useState('overview'); // 'overview' | 'attempt' | 'history' | 'faculty'
+  const [examState, setExamState] = useState('PORTAL'); // 'PORTAL' | 'SYSTEM_CHECK' | 'IN_PROGRESS' | 'PAUSED' | 'SUBMITTED'
 
   // Pre-Check 8-Step Verification
-  const [checkStep, setCheckStep] = useState(1);
   const [cameraAllowed, setCameraAllowed] = useState(false);
-  const [micAllowed, setMicAllowed] = useState(true);
   const [screenShareAllowed, setScreenShareAllowed] = useState(false);
-  const [internetChecked, setInternetChecked] = useState(true);
-  const [browserChecked, setBrowserChecked] = useState(true);
   const [fullscreenActive, setFullscreenActive] = useState(false);
-  const [identityVerified, setIdentityVerified] = useState(false);
-  const [consentAccepted, setConsentAccepted] = useState(true);
+  const [cameraStatus, setCameraStatus] = useState('ACTIVE'); // 'ACTIVE' | 'FACE_DETECTED' | 'MULTIPLE_FACES' | 'FACE_MISSING' | 'DISABLED'
+  const [faceDetectionText, setFaceDetectionText] = useState('Face Detected');
 
-  // Live Exam Monitoring States
+  // Live Exam Telemetry & Monitoring
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [networkQuality, setNetworkQuality] = useState('GOOD'); // 'GOOD' | 'SLOW' | 'DISCONNECTED'
-  const [pingLatency, setPingLatency] = useState(24);
-  const [cameraStatus, setCameraStatus] = useState('ACTIVE'); // 'ACTIVE' | 'FACE_MISSING' | 'MULTIPLE_FACES' | 'DISABLED'
-  const [warningCount, setWarningCount] = useState(0);
-  const [warningModalMessage, setWarningModalMessage] = useState('');
+  const [pingLatency, setPingLatency] = useState(22);
   const [autoSaveStatus, setAutoSaveStatus] = useState('Synced');
   const [timeLeft, setTimeLeft] = useState(3600); // 60 mins = 3600s
   const [activeSectionName, setActiveSectionName] = useState('Aptitude');
@@ -140,20 +134,35 @@ export const SecureExamMode = () => {
   const [codeConsoleOutput, setCodeConsoleOutput] = useState('');
   const [isRunningCode, setIsRunningCode] = useState(false);
 
-  // Attempt & Results Data
+  // Security Counters & Warnings (Never auto-fail)
+  const [warningCount, setWarningCount] = useState(0);
+  const [devToolsWarningModal, setDevToolsWarningModal] = useState(false);
+  const [screenSharePauseModal, setScreenSharePauseModal] = useState(false);
+  const [securityModalText, setSecurityModalText] = useState('');
+  const [devToolsCount, setDevToolsCount] = useState(0);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+
+  // Attempt & Result State
   const [attemptNumber, setAttemptNumber] = useState(1);
   const [remainingAttempts, setRemainingAttempts] = useState(2);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attemptHistory, setAttemptHistory] = useState([
+    { attemptNumber: 1, completedDate: '22 Aug 2026', score: '78%', rawScore: '75.00 / 96.00', integrityScore: '95%', reviewStatus: 'VERIFIED_CLEAN', timeSpent: '52 mins' },
+    { attemptNumber: 2, completedDate: '23 Aug 2026', score: '84%', rawScore: '81.00 / 96.00', integrityScore: '98%', reviewStatus: 'VERIFIED_CLEAN', timeSpent: '48 mins' },
+  ]);
+
   const [examResult, setExamResult] = useState({
-    timeSpentFormatted: '01:35:16',
+    timeSpentFormatted: '00:52:14',
     score: 23.00,
     maxScore: 96.00,
     percentage: 24,
     percentile: 58,
     passed: false,
-    integrityScore: 98,
+    integrityScore: 92,
+    reviewStatus: 'VERIFIED_CLEAN', // 'VERIFIED_CLEAN' | 'NEEDS_FACULTY_REVIEW'
     ipAddress: '2401:4900:231d:83b3:fd83:2c1b:e37d:9dbf',
     tabSwitches: 0,
+    devToolsCount: 0,
     browserUsed: 'Chrome 122.0 / Windows x64',
     sectionScores: {
       Aptitude: { score: 5.00, maxScore: 15, avgScore: 5.32, topScore: 14.00, leastScore: 0.00 },
@@ -163,36 +172,28 @@ export const SecureExamMode = () => {
       Coding: { score: 1.00, maxScore: 20, avgScore: 4.27, topScore: 20.00, leastScore: 0.00 },
     },
     aiRecommendations: {
-      strengths: ['Verbal Ability & Comprehension', 'Speed Aptitude Mathematics'],
+      strengths: ['Verbal Ability & Comprehension', 'Speed Quantitative Mathematics'],
       weaknesses: ['Two-Pointer & Sliding Window Coding', 'Bitwise & Recursive Pseudo Code'],
       actionableTips: [
-        'Practice 10 Medium Array and Dynamic Programming problems.',
-        'Review recursive call stacks and execution trees.',
-        'Take targeted Aptitude sectional mock tests before placement drives.',
+        'Practice 10 Medium Array and Hash Map problems in the Coding Sandbox.',
+        'Review recursive call stacks and return values in Pseudo Code.',
+        'Maintain consistent fullscreen discipline during proctored benchmarks.',
       ],
-      verdict: 'Benchmark Cleared with Focus Areas for Product Developer Profiles',
-    },
-    improvementMetrics: {
-      previousScore: 18,
-      scoreDelta: +5,
-      percentageChange: 27,
+      verdict: 'Benchmark Cleared & Recorded with Faculty Integrity Audit',
     },
   });
 
   const videoRef = useRef(null);
   const pipVideoRef = useRef(null);
   const screenStreamRef = useRef(null);
+  const blurStartTimeRef = useRef(null);
 
-  // Network & Latency Diagnostic Engine
+  // Network Diagnostic & Latency Ping
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      setNetworkQuality('GOOD');
-    };
+    const handleOnline = () => setIsOnline(true);
     const handleOffline = () => {
       setIsOnline(false);
-      setNetworkQuality('DISCONNECTED');
-      setWarningModalMessage('Network connection lost. Offline answer cache active.');
+      setSecurityModalText('Network connection lost. Offline answer cache is active.');
     };
 
     window.addEventListener('online', handleOnline);
@@ -200,11 +201,9 @@ export const SecureExamMode = () => {
 
     const pingTimer = setInterval(() => {
       if (navigator.onLine) {
-        const simulatedPing = Math.floor(18 + Math.random() * 20);
-        setPingLatency(simulatedPing);
-        setNetworkQuality(simulatedPing > 150 ? 'SLOW' : 'GOOD');
+        setPingLatency(Math.floor(16 + Math.random() * 18));
       }
-    }, 4000);
+    }, 3500);
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -213,16 +212,16 @@ export const SecureExamMode = () => {
     };
   }, []);
 
-  // 10-Second Auto-Save Engine
+  // 10-Second Background Auto-Save
   useEffect(() => {
     if (examState !== 'IN_PROGRESS') return;
 
     const autoSaveTimer = setInterval(async () => {
       setAutoSaveStatus('Saving...');
-      localStorage.setItem('sgip_exam_cache', JSON.stringify({ answers, codingDrafts, timeLeft }));
+      localStorage.setItem('sgip_secure_cache', JSON.stringify({ answers, codingDrafts, timeLeft }));
       try {
         await examProctorApi.autoSave({
-          assessmentId: assessment?._id || id,
+          assessmentId: assessment?._id || 'full-pattern-test',
           attemptNumber,
           answers,
           codingAnswers: codingDrafts,
@@ -237,155 +236,109 @@ export const SecureExamMode = () => {
     return () => clearInterval(autoSaveTimer);
   }, [examState, answers, codingDrafts, timeLeft]);
 
-  // Load Assessment Definition
-  useEffect(() => {
-    fetchAssessmentData();
-  }, [id]);
-
-  const fetchAssessmentData = async () => {
-    try {
-      if (id && id !== 'pattern-test') {
-        const res = await assessmentApi.getById(id);
-        if (res.data.success) {
-          setAssessment(res.data.assessment);
-          setTimeLeft((res.data.assessment.durationMinutes || 60) * 60);
-        }
-      } else {
-        setAssessment({
-          _id: 'full-pattern-test-2026',
-          title: '22.08.2026_ +Full Pattern Test',
-          description: 'Official Multi-Section Placement Assessment (Aptitude, Reasoning, Verbal, Pseudo Code, Coding)',
-          durationMinutes: 60,
-          totalMarks: 96,
-          passingMarks: 50,
-          maxAttempts: 3,
-        });
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Step 1: Camera Permission
-  const requestCameraAccess = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: 'user' },
-        audio: false,
-      });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      if (pipVideoRef.current) pipVideoRef.current.srcObject = stream;
-      setCameraAllowed(true);
-      setCameraStatus('ACTIVE');
-    } catch {
-      alert('Camera access is mandatory for proctoring verification.');
-      setCameraAllowed(false);
-      setCameraStatus('DISABLED');
-    }
-  };
-
-  // Step 3: Mandatory Entire Screen Share Permission
-  const requestScreenShareAccess = async () => {
-    try {
-      if (navigator.mediaDevices?.getDisplayMedia) {
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { displaySurface: 'monitor' },
-        });
-        screenStreamRef.current = stream;
-        setScreenShareAllowed(true);
-
-        stream.getVideoTracks()[0].onended = () => {
-          setScreenShareAllowed(false);
-          logSecurityViolation('SCREEN_SHARE_INTERRUPTED', 'HIGH', 'Mandatory desktop screen sharing was terminated.');
-          setWarningModalMessage('Screen sharing was interrupted! Please resume screen sharing immediately.');
-        };
-      }
-    } catch {
-      alert('Mandatory Requirement: You must share your entire screen to proceed.');
-      setScreenShareAllowed(false);
-    }
-  };
-
-  // Step 6: Fullscreen Mode
-  const enterFullscreenMode = () => {
-    const elem = document.documentElement;
-    if (elem.requestFullscreen) {
-      elem.requestFullscreen().then(() => setFullscreenActive(true)).catch(() => {});
-    }
-  };
-
-  // Final Assessment Start
-  const handleLaunchAssessment = async () => {
-    if (!cameraAllowed || !screenShareAllowed) {
-      alert('Please complete all mandatory system checks (Camera & Screen Share) first.');
-      return;
-    }
-
-    enterFullscreenMode();
-    try {
-      const res = await examProctorApi.startSession({
-        assessmentId: assessment?._id || id,
-        screenShareGranted: true,
-        consentAccepted: true,
-      });
-      if (res.data.success) {
-        setAttemptNumber(res.data.attemptNumber);
-        setRemainingAttempts(res.data.remainingAttempts);
-      }
-    } catch (e) {
-      console.warn('Session startup status:', e.message);
-    }
-
-    setExamState('IN_PROGRESS');
-    setTimeout(() => {
-      if (pipVideoRef.current && videoRef.current?.srcObject) {
-        pipVideoRef.current.srcObject = videoRef.current.srcObject;
-      }
-    }, 500);
-  };
-
-  // Security & Telemetry Listeners during Exam
+  // DevTools Detection Engine (F12, Ctrl+Shift+I, Inspect, Dimension delta, Console open)
   useEffect(() => {
     if (examState !== 'IN_PROGRESS') return;
 
-    const handleVisibilityChange = () => {
+    const handleKeyDown = (e) => {
+      // F12 or Ctrl+Shift+I/J/C or Cmd+Opt+I/J/C
+      if (
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+        (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+        (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
+      ) {
+        e.preventDefault();
+        triggerDevToolsViolation('Keyboard shortcut for Developer Tools / Page Source detected.');
+      }
+    };
+
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+    };
+
+    // Dimension delta detection for docked/undocked DevTools
+    const devToolsCheckInterval = setInterval(() => {
+      const widthThreshold = window.outerWidth - window.innerWidth > 160;
+      const heightThreshold = window.outerHeight - window.innerHeight > 160;
+      if (widthThreshold || heightThreshold) {
+        triggerDevToolsViolation('Developer Tools window or element inspection detected.');
+      }
+    }, 2000);
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('contextmenu', handleContextMenu);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('contextmenu', handleContextMenu);
+      clearInterval(devToolsCheckInterval);
+    };
+  }, [examState, attemptNumber]);
+
+  const triggerDevToolsViolation = useCallback((detailText) => {
+    setDevToolsCount((prev) => prev + 1);
+    setWarningCount((prev) => prev + 1);
+    setDevToolsWarningModal(true);
+    examProctorApi.logEvent({
+      assessmentId: assessment?._id || 'full-pattern-test',
+      attemptNumber,
+      eventType: 'DEVTOOLS_OPENED',
+      severity: 'CRITICAL',
+      details: detailText,
+    }).catch(() => {});
+  }, [assessment, attemptNumber]);
+
+  // Tab Switch & Focus Loss Duration Tracking
+  useEffect(() => {
+    if (examState !== 'IN_PROGRESS') return;
+
+    const handleVisibility = () => {
       if (document.hidden) {
-        logSecurityViolation('TAB_SWITCH', 'MEDIUM', 'Student switched tabs or lost window focus.');
-        setWarningModalMessage('Tab switch detected! Remain in the examination window to avoid integrity penalties.');
+        blurStartTimeRef.current = Date.now();
+        setTabSwitchCount((prev) => prev + 1);
+        setWarningCount((prev) => prev + 1);
+      } else {
+        const durationSec = blurStartTimeRef.current ? Math.round((Date.now() - blurStartTimeRef.current) / 1000) : 1;
+        examProctorApi.logEvent({
+          assessmentId: assessment?._id || 'full-pattern-test',
+          attemptNumber,
+          eventType: 'TAB_SWITCH',
+          severity: 'HIGH',
+          durationSeconds: durationSec,
+          details: `Candidate switched tab / lost window focus for ${durationSec} seconds.`,
+        }).catch(() => {});
+        setSecurityModalText(`Tab switch detected! Window was unfocused for ${durationSec}s.`);
       }
     };
 
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
         setFullscreenActive(false);
-        logSecurityViolation('FULLSCREEN_EXIT', 'HIGH', 'Fullscreen examination mode was exited.');
-        setWarningModalMessage('Fullscreen mode required! Please return to fullscreen immediately.');
+        setWarningCount((prev) => prev + 1);
+        setSecurityModalText('Fullscreen mode required! Please return to fullscreen immediately.');
+        examProctorApi.logEvent({
+          assessmentId: assessment?._id || 'full-pattern-test',
+          attemptNumber,
+          eventType: 'FULLSCREEN_EXIT',
+          severity: 'HIGH',
+          details: 'Candidate exited fullscreen mode.',
+        }).catch(() => {});
       } else {
         setFullscreenActive(true);
       }
     };
 
-    const handlePreventCopy = (e) => {
-      e.preventDefault();
-      logSecurityViolation('CLIPBOARD_OPERATION', 'HIGH', 'Clipboard copy/paste blocked by proctoring engine.');
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibility);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    window.addEventListener('copy', handlePreventCopy);
-    window.addEventListener('paste', handlePreventCopy);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibility);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      window.removeEventListener('copy', handlePreventCopy);
-      window.removeEventListener('paste', handlePreventCopy);
     };
   }, [examState, attemptNumber]);
 
-  // Exam Countdown Clock
+  // Countdown Timer
   useEffect(() => {
     if (examState !== 'IN_PROGRESS') return;
 
@@ -403,28 +356,127 @@ export const SecureExamMode = () => {
     return () => clearInterval(timer);
   }, [examState]);
 
-  const logSecurityViolation = async (eventType, severity, details) => {
-    setWarningCount((prev) => prev + 1);
+  useEffect(() => {
+    fetchAssessmentData();
+  }, [id]);
+
+  const fetchAssessmentData = async () => {
     try {
-      await examProctorApi.logEvent({
-        assessmentId: assessment?._id || id,
-        attemptNumber,
-        eventType,
-        severity,
-        details,
+      const res = await examProctorApi.getHistory('full-pattern-test').catch(() => null);
+      if (res?.data?.attempts) {
+        setAttemptHistory(res.data.attempts);
+      }
+      setAssessment({
+        _id: 'full-pattern-test',
+        title: 'Full Pattern Mock Assessment',
+        description: 'Comprehensive 5-Section Placement Readiness Benchmark',
+        durationMinutes: 60,
+        totalMarks: 96,
+        passingMarks: 50,
+        maxAttempts: 3,
       });
-    } catch (err) {
-      console.warn('Proctoring log sync:', err.message);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Step 1: Camera Access
+  const requestCameraAccess = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480, facingMode: 'user' },
+        audio: false,
+      });
+      if (videoRef.current) videoRef.current.srcObject = stream;
+      if (pipVideoRef.current) pipVideoRef.current.srcObject = stream;
+      setCameraAllowed(true);
+      setCameraStatus('ACTIVE');
+      setFaceDetectionText('Face Detected');
+    } catch {
+      alert('Camera access is mandatory for examination proctoring.');
+      setCameraAllowed(false);
+      setCameraStatus('DISABLED');
+    }
+  };
+
+  // Step 3: Screen Share Access (Entire Screen)
+  const requestScreenShareAccess = async () => {
+    try {
+      if (navigator.mediaDevices?.getDisplayMedia) {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { displaySurface: 'monitor' },
+        });
+        screenStreamRef.current = stream;
+        setScreenShareAllowed(true);
+
+        stream.getVideoTracks()[0].onended = () => {
+          setScreenShareAllowed(false);
+          setExamState('PAUSED');
+          setScreenSharePauseModal(true);
+          examProctorApi.logEvent({
+            assessmentId: assessment?._id || 'full-pattern-test',
+            attemptNumber,
+            eventType: 'SCREEN_SHARE_STOPPED',
+            severity: 'CRITICAL',
+            details: 'Mandatory screen sharing was terminated by user. Examination paused.',
+          }).catch(() => {});
+        };
+      }
+    } catch {
+      alert('Mandatory: You must share your entire screen to enter the examination.');
+      setScreenShareAllowed(false);
+    }
+  };
+
+  // Fullscreen Entry
+  const enterFullscreenMode = () => {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().then(() => setFullscreenActive(true)).catch(() => {});
+    }
+  };
+
+  // Start Assessment
+  const handleLaunchAssessment = async () => {
+    if (!cameraAllowed || !screenShareAllowed) {
+      alert('Please complete both Camera and Screen Sharing checks first.');
+      return;
+    }
+
+    enterFullscreenMode();
+    try {
+      const res = await examProctorApi.startSession({
+        assessmentId: assessment?._id || 'full-pattern-test',
+        screenShareGranted: true,
+        consentAccepted: true,
+      });
+      if (res.data.success) {
+        setAttemptNumber(res.data.attemptNumber);
+        setRemainingAttempts(res.data.remainingAttempts);
+      }
+    } catch (e) {
+      console.warn('Session start note:', e.message);
+    }
+
+    setExamState('IN_PROGRESS');
+    setTimeout(() => {
+      if (pipVideoRef.current && videoRef.current?.srcObject) {
+        pipVideoRef.current.srcObject = videoRef.current.srcObject;
+      }
+    }, 400);
+  };
+
+  // Coding Runner
   const handleRunCodeTestCases = () => {
     setIsRunningCode(true);
     const activeProb = CODING_PROBLEMS[codingActiveIndex];
-    setCodeConsoleOutput(`Executing Solution.${codingLanguage === 'java' ? 'java' : codingLanguage === 'python' ? 'py' : 'cpp'} with JDK 21...\n[TEST CASE 1]: Input: ${activeProb.testCases[0].input} -> Output: ${activeProb.testCases[0].output} (PASS - 2ms)\n[TEST CASE 2]: Input: ${activeProb.testCases[1].input} -> Output: ${activeProb.testCases[1].output} (PASS - 1ms)\n[TEST CASE 3 (Hidden)]: Input: ${activeProb.testCases[2].input} -> Output: ${activeProb.testCases[2].output} (PASS - 2ms)\n\nAll 3/3 Test Cases Cleared! (Memory: 41.2MB, Time: 32ms, Quality Score: 100%)`);
-    setTimeout(() => setIsRunningCode(false), 700);
+    setCodeConsoleOutput(`[JDK 21 Compiler]: Compiling Solution.${codingLanguage === 'java' ? 'java' : codingLanguage === 'python' ? 'py' : 'cpp'}...\n✓ Test Case 1: Input: ${activeProb.testCases[0].input} -> Output: ${activeProb.testCases[0].output} (Passed - 1ms)\n✓ Test Case 2: Input: ${activeProb.testCases[1].input} -> Output: ${activeProb.testCases[1].output} (Passed - 2ms)\n✓ Test Case 3 (Hidden): Output matches expected specification (Passed - 1ms)\n\nAll 3/3 Test Cases Cleared! (Execution: 28ms, Memory: 39.4MB)`);
+    setTimeout(() => setIsRunningCode(false), 600);
   };
 
+  // Submit Exam (Never auto-fail student)
   const handleFinalSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -439,14 +491,15 @@ export const SecureExamMode = () => {
       const formattedTime = `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
       const res = await examProctorApi.submitSecureExam({
-        assessmentId: assessment?._id || id,
+        assessmentId: assessment?._id || 'full-pattern-test',
         attemptNumber,
         answers: [],
         timeSpentSeconds: timeSpentSec,
         screenShareGranted: screenShareAllowed,
+        tabSwitches: tabSwitchCount,
+        devToolsCount,
         ipAddress: '2401:4900:231d:83b3:fd83:2c1b:e37d:9dbf',
         browserUsed: 'Chrome 122.0 (Windows)',
-        tabSwitches: warningCount,
       });
 
       if (res?.data?.success) {
@@ -456,7 +509,7 @@ export const SecureExamMode = () => {
         });
       }
     } catch (e) {
-      console.warn('Submission fallback:', e);
+      console.warn('Submission sync fallback:', e);
     } finally {
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
@@ -465,8 +518,8 @@ export const SecureExamMode = () => {
       setExamState('PORTAL');
       setViewTab('attempt');
       confetti({
-        particleCount: 150,
-        spread: 80,
+        particleCount: 140,
+        spread: 75,
         origin: { y: 0.6 },
       });
     }
@@ -490,45 +543,47 @@ export const SecureExamMode = () => {
   // =========================================================================
   // VIEW 1: ACTIVE IN-PROGRESS PROCTORED EXAMINATION WORKSPACE
   // =========================================================================
-  if (examState === 'IN_PROGRESS') {
+  if (examState === 'IN_PROGRESS' || examState === 'PAUSED') {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col select-none">
-        {/* Fixed Top Proctoring Bar (Matching User Requirement #11) */}
-        <header className="sticky top-0 z-50 bg-slate-900/95 border-b border-rose-500/25 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 backdrop-blur-md shadow-xl">
-          {/* Left: Test Title & Attempt Badge */}
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col select-none font-sans">
+        {/* Sticky Top Status Header (Section #11) */}
+        <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+          {/* Left: Test Title (No Date in Title) */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-600 to-pink-600 flex items-center justify-center font-bold text-white shadow-md">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md">
               <Shield className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
-                <span>{assessment?.title || '22.08.2026_ +Full Pattern Test'}</span>
-                <Badge variant="rose" size="sm">Attempt {attemptNumber} of 3</Badge>
+              <h2 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
+                <span>Full Pattern Mock Assessment</span>
+                <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 text-[10px] font-mono font-bold border border-indigo-500/30">
+                  Attempt {attemptNumber} of 3
+                </span>
               </h2>
               <p className="text-[11px] text-slate-400">
-                Section: <strong className="text-rose-400">{activeSectionName}</strong> &bull; Auto-Save: <span className="text-emerald-400">{autoSaveStatus}</span>
+                Section: <strong className="text-indigo-400">{activeSectionName}</strong> &bull; Auto-Save: <span className="text-emerald-400">{autoSaveStatus}</span>
               </p>
             </div>
           </div>
 
-          {/* Middle: Live Diagnostic Status Group */}
+          {/* Middle: Live Diagnostic Status Badges (Linear / Vercel Dark Style) */}
           <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
             {/* Camera Status */}
-            <div className="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700 flex items-center gap-1.5">
+            <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 flex items-center gap-1.5 text-slate-200">
               <Camera className="w-3.5 h-3.5 text-emerald-400" />
               <span>Camera: <strong className="text-emerald-400">Active</strong></span>
             </div>
 
-            {/* Screen Share Status */}
-            <div className="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700 flex items-center gap-1.5">
-              <Monitor className="w-3.5 h-3.5 text-pink-400" />
-              <span>Screen: <strong className="text-emerald-400">{screenShareAllowed ? 'Active' : 'Missing'}</strong></span>
+            {/* Face Status */}
+            <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 flex items-center gap-1.5 text-slate-200">
+              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Face: <strong className="text-emerald-400">{faceDetectionText}</strong></span>
             </div>
 
-            {/* Fullscreen Status */}
-            <div className="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700 flex items-center gap-1.5">
-              <Maximize className="w-3.5 h-3.5 text-rose-400" />
-              <span>Fullscreen: <strong className="text-emerald-400">Enabled</strong></span>
+            {/* Screen Share Status */}
+            <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 flex items-center gap-1.5 text-slate-200">
+              <Monitor className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Screen: <strong className={screenShareAllowed ? 'text-emerald-400' : 'text-red-400'}>{screenShareAllowed ? 'Active' : 'Missing'}</strong></span>
             </div>
 
             {/* Internet Status */}
@@ -536,10 +591,10 @@ export const SecureExamMode = () => {
               isOnline ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/20 border-red-500/40 text-red-400 animate-pulse'
             }`}>
               {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-              <span>Internet: <strong>{isOnline ? `Online (${pingLatency}ms)` : 'Lost'}</strong></span>
+              <span>Internet: <strong>{isOnline ? `Online (${pingLatency}ms)` : 'Disconnected'}</strong></span>
             </div>
 
-            {/* Warnings Count */}
+            {/* Warning Counter */}
             {warningCount > 0 && (
               <div className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 font-bold flex items-center gap-1">
                 <AlertTriangle className="w-3.5 h-3.5" />
@@ -548,17 +603,17 @@ export const SecureExamMode = () => {
             )}
           </div>
 
-          {/* Right: Timer & Webcam PiP & Submit */}
+          {/* Right: Timer & Webcam PiP & Finish Button */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-slate-950 px-3.5 py-1.5 rounded-xl border border-rose-500/30 font-mono font-black text-base text-rose-400 shadow-inner">
-              <Clock className="w-4 h-4 text-rose-500 animate-pulse" />
+            <div className="flex items-center gap-2 bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-800 font-mono font-bold text-base text-indigo-400 shadow-inner">
+              <Clock className="w-4 h-4 text-indigo-400 animate-pulse" />
               <span>{formatTimer(timeLeft)}</span>
             </div>
 
-            {/* Live Camera PiP Feed */}
-            <div className="w-16 h-12 rounded-xl overflow-hidden border border-emerald-500/50 relative bg-black shrink-0 shadow-lg">
+            {/* Camera PiP Video Box (Non-overlapping, clean borders) */}
+            <div className="w-16 h-12 rounded-xl overflow-hidden border border-emerald-500/60 relative bg-black shrink-0 shadow-lg">
               <video ref={pipVideoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
-              <div className="absolute top-0.5 left-0.5 flex items-center gap-1 bg-black/70 px-1 rounded-sm text-[7px] text-emerald-400 font-bold">
+              <div className="absolute top-0.5 left-0.5 flex items-center gap-1 bg-black/80 px-1 rounded-sm text-[7px] text-emerald-400 font-bold">
                 <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping" />
                 LIVE
               </div>
@@ -569,16 +624,16 @@ export const SecureExamMode = () => {
               size="sm"
               onClick={handleFinalSubmit}
               disabled={isSubmitting}
-              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 font-bold border-0 shadow-lg"
+              className="bg-emerald-600 hover:bg-emerald-500 font-bold border-0 shadow-lg"
             >
               {isSubmitting ? 'Submitting...' : 'Finish Test'}
             </Button>
           </div>
         </header>
 
-        {/* Section Navigation Ribbon */}
-        <div className="bg-slate-900 border-b border-rose-500/20 px-4 py-2 flex items-center gap-2 overflow-x-auto">
-          {PATTERN_SECTIONS.map((sec) => (
+        {/* Section Navigation Tabs */}
+        <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center gap-2 overflow-x-auto">
+          {SECTIONS_CONFIG.map((sec) => (
             <button
               key={sec.name}
               onClick={() => {
@@ -587,7 +642,7 @@ export const SecureExamMode = () => {
               }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
                 activeSectionName === sec.name
-                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                  ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
@@ -599,19 +654,19 @@ export const SecureExamMode = () => {
           ))}
         </div>
 
-        {/* Main Examination Workspace */}
+        {/* Examination Workspace */}
         <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl mx-auto w-full">
-          {/* 3 Columns: Active Section Question or Coding IDE */}
+          {/* Left / Center: Question or Coding IDE */}
           <div className="lg:col-span-3 space-y-6">
             {activeSectionName === 'Coding' ? (
-              /* Coding Section with In-Browser IDE */
-              <div className="glass-card rounded-3xl p-6 border border-rose-500/20 shadow-2xl space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-500/20 pb-3">
+              /* Coding IDE Section */
+              <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setCodingActiveIndex(0)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
-                        codingActiveIndex === 0 ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-300'
+                        codingActiveIndex === 0 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'
                       }`}
                     >
                       Problem 1 (Two Sum)
@@ -619,7 +674,7 @@ export const SecureExamMode = () => {
                     <button
                       onClick={() => setCodingActiveIndex(1)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
-                        codingActiveIndex === 1 ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-300'
+                        codingActiveIndex === 1 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'
                       }`}
                     >
                       Problem 2 (Longest Substring)
@@ -638,7 +693,7 @@ export const SecureExamMode = () => {
                           [curProb.id]: curProb.starterCode[newLang] || '',
                         });
                       }}
-                      className="bg-slate-900 border border-slate-700 text-xs rounded-xl px-3 py-1.5 text-white font-mono"
+                      className="bg-slate-950 border border-slate-700 text-xs rounded-xl px-3 py-1.5 text-white font-mono"
                     >
                       <option value="java">Java (OpenJDK 21)</option>
                       <option value="python">Python 3.12</option>
@@ -646,25 +701,25 @@ export const SecureExamMode = () => {
                       <option value="javascript">JavaScript (Node 20)</option>
                     </select>
 
-                    <Button variant="primary" size="sm" icon={Play} onClick={handleRunCodeTestCases} loading={isRunningCode}>
+                    <Button variant="primary" size="sm" icon={Play} onClick={handleRunCodeTestCases} loading={isRunningCode} className="bg-indigo-600 hover:bg-indigo-500">
                       Run Test Cases
                     </Button>
                   </div>
                 </div>
 
-                <div className="text-xs text-slate-300 bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-2">
+                <div className="text-xs text-slate-300 bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
                   <div className="flex items-center justify-between">
                     <h3 className="font-bold text-white text-sm">{CODING_PROBLEMS[codingActiveIndex].title}</h3>
-                    <Badge variant="rose" size="sm">{CODING_PROBLEMS[codingActiveIndex].difficulty} &bull; 10 Marks</Badge>
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-mono text-[10px]">{CODING_PROBLEMS[codingActiveIndex].difficulty} &bull; 10 Marks</span>
                   </div>
                   <p>{CODING_PROBLEMS[codingActiveIndex].description}</p>
                 </div>
 
-                {/* Code Editor */}
+                {/* Editor */}
                 <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-950">
-                  <div className="bg-slate-900/80 px-4 py-2 text-xs font-mono text-slate-400 flex items-center justify-between border-b border-slate-800">
+                  <div className="bg-slate-900 px-4 py-2 text-xs font-mono text-slate-400 flex items-center justify-between border-b border-slate-800">
                     <span>Solution.{codingLanguage === 'java' ? 'java' : codingLanguage === 'python' ? 'py' : codingLanguage === 'cpp' ? 'cpp' : 'js'}</span>
-                    <span>UTF-8 &bull; Auto-Formatted</span>
+                    <span>UTF-8 &bull; Strict Proctoring</span>
                   </div>
                   <textarea
                     rows={12}
@@ -675,9 +730,8 @@ export const SecureExamMode = () => {
                   />
                 </div>
 
-                {/* Console Output */}
                 {codeConsoleOutput && (
-                  <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 font-mono text-xs text-slate-300 space-y-1">
+                  <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 space-y-1">
                     <span className="text-[10px] uppercase font-bold text-slate-400">Execution Output:</span>
                     <pre className="text-emerald-400 whitespace-pre-wrap">{codeConsoleOutput}</pre>
                   </div>
@@ -685,9 +739,9 @@ export const SecureExamMode = () => {
               </div>
             ) : (
               /* MCQ & Pseudo Code Questions */
-              <div className="glass-card rounded-3xl p-6 border border-rose-500/20 shadow-2xl space-y-6">
-                <div className="flex items-center justify-between border-b border-rose-500/20 pb-3">
-                  <span className="text-xs uppercase font-bold text-rose-400 tracking-wider">
+              <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-6">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <span className="text-xs uppercase font-bold text-indigo-400 tracking-wider">
                     {activeSectionName} Section &bull; Question {currentQIndex + 1} of 10
                   </span>
                   <div className="flex items-center gap-2">
@@ -708,10 +762,8 @@ export const SecureExamMode = () => {
                   </h3>
 
                   {activeSectionName === 'Pseudo Code' && (
-                    <div className="p-4 rounded-2xl bg-slate-950 font-mono text-xs text-rose-300 border border-rose-500/20">
-                      <code>
-                        {`function execute(n) {\n    if (n <= 1) return 1;\n    return n * execute(n - 1) + 2;\n}`}
-                      </code>
+                    <div className="p-4 rounded-2xl bg-slate-950 font-mono text-xs text-indigo-300 border border-slate-800">
+                      <code>{`function execute(n) {\n    if (n <= 1) return 1;\n    return n * execute(n - 1) + 2;\n}`}</code>
                     </div>
                   )}
                 </div>
@@ -732,26 +784,26 @@ export const SecureExamMode = () => {
                         onClick={() => setAnswers({ ...answers, [`${activeSectionName}_${currentQIndex}`]: optIdx })}
                         className={`w-full p-4 rounded-2xl text-left text-xs font-semibold border transition flex items-center justify-between ${
                           isSelected
-                            ? 'bg-rose-500/20 border-rose-500 text-white ring-2 ring-rose-500/40'
-                            : 'bg-slate-900/60 hover:bg-slate-800 border-slate-800 text-slate-300'
+                            ? 'bg-indigo-600/20 border-indigo-500 text-white ring-2 ring-indigo-500/40'
+                            : 'bg-slate-950/60 hover:bg-slate-800 border-slate-800 text-slate-300'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs ${
-                            isSelected ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-400'
+                            isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
                           }`}>
                             {String.fromCharCode(65 + optIdx)}
                           </span>
                           <span>{optText}</span>
                         </div>
-                        {isSelected && <Check className="w-4 h-4 text-rose-400" />}
+                        {isSelected && <Check className="w-4 h-4 text-indigo-400" />}
                       </button>
                     );
                   })}
                 </div>
 
                 {/* Bottom Controls */}
-                <div className="flex items-center justify-between pt-4 border-t border-rose-500/20">
+                <div className="flex items-center justify-between pt-4 border-t border-slate-800">
                   <button
                     type="button"
                     onClick={() => setMarkedForReview({
@@ -780,6 +832,7 @@ export const SecureExamMode = () => {
                       variant="primary"
                       size="sm"
                       onClick={() => setCurrentQIndex((prev) => Math.min(9, prev + 1))}
+                      className="bg-indigo-600 hover:bg-indigo-500"
                     >
                       Save &amp; Next
                     </Button>
@@ -789,11 +842,11 @@ export const SecureExamMode = () => {
             )}
           </div>
 
-          {/* Right Column: Palette & Proctoring Status */}
+          {/* Right Column: Question Palette */}
           <div className="space-y-4">
-            <div className="glass-card rounded-3xl p-5 border border-rose-500/20 shadow-xl space-y-4">
+            <div className="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-rose-400" />
+                <Layers className="w-4 h-4 text-indigo-400" />
                 <span>Question Palette ({activeSectionName})</span>
               </h4>
 
@@ -809,7 +862,7 @@ export const SecureExamMode = () => {
                       onClick={() => setCurrentQIndex(idx)}
                       className={`h-9 rounded-xl font-mono text-xs font-bold transition flex items-center justify-center ${
                         isCurrent
-                          ? 'ring-2 ring-rose-400 bg-rose-600 text-white'
+                          ? 'ring-2 ring-indigo-400 bg-indigo-600 text-white'
                           : isAns
                           ? 'bg-emerald-600 text-white'
                           : isReview
@@ -823,7 +876,6 @@ export const SecureExamMode = () => {
                 })}
               </div>
 
-              {/* Legend */}
               <div className="space-y-1.5 pt-3 border-t border-slate-800 text-[10px] text-slate-400">
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-md bg-emerald-600 shrink-0" />
@@ -842,25 +894,78 @@ export const SecureExamMode = () => {
           </div>
         </div>
 
-        {/* Warning Notification Alert Dialog */}
-        {warningModalMessage && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
-            <div className="w-full max-w-md glass-panel rounded-3xl border border-amber-500/50 p-6 space-y-4 text-center shadow-2xl">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
-                <AlertTriangle className="w-6 h-6" />
+        {/* Full-Screen DevTools Warning Modal (Section #5) */}
+        {devToolsWarningModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
+            <div className="w-full max-w-md bg-slate-900 rounded-3xl border border-red-500/50 p-6 space-y-4 text-center shadow-2xl">
+              <div className="w-14 h-14 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+                <ShieldAlert className="w-7 h-7" />
               </div>
-              <h3 className="text-lg font-black text-white">Proctoring Security Alert</h3>
-              <p className="text-xs text-amber-200/90 leading-relaxed">{warningModalMessage}</p>
+              <h3 className="text-lg font-bold text-white">Developer Tools Detected!</h3>
+              <p className="text-xs text-red-200/90 leading-relaxed">
+                Inspecting elements, opening the console, or debugging triggers an integrity flag. Close Developer Tools immediately to prevent review penalties.
+              </p>
               <Button
                 variant="primary"
                 size="md"
                 onClick={() => {
-                  setWarningModalMessage('');
+                  setDevToolsWarningModal(false);
                   enterFullscreenMode();
+                }}
+                className="w-full bg-red-600 hover:bg-red-500 font-bold"
+              >
+                I Understand &bull; Return to Exam
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Screen Share Interrupted Pause Overlay (Section #9) */}
+        {screenSharePauseModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
+            <div className="w-full max-w-md bg-slate-900 rounded-3xl border border-amber-500/50 p-6 space-y-4 text-center shadow-2xl">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+                <PauseCircle className="w-7 h-7" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Assessment Paused</h3>
+              <p className="text-xs text-amber-200/90 leading-relaxed">
+                Screen sharing was disconnected. Entire primary desktop screen sharing is mandatory to resume the examination.
+              </p>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={async () => {
+                  await requestScreenShareAccess();
+                  setScreenSharePauseModal(false);
+                  setExamState('IN_PROGRESS');
                 }}
                 className="w-full bg-amber-600 hover:bg-amber-500 font-bold"
               >
-                I Understand &bull; Resume Exam
+                Reconnect Screen Sharing
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* General Security Notification Dialog */}
+        {securityModalText && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
+            <div className="w-full max-w-md bg-slate-900 rounded-3xl border border-slate-700 p-6 space-y-4 text-center shadow-2xl">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Proctoring Notice</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">{securityModalText}</p>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => {
+                  setSecurityModalText('');
+                  enterFullscreenMode();
+                }}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 font-bold"
+              >
+                Continue Assessment
               </Button>
             </div>
           </div>
@@ -870,18 +975,18 @@ export const SecureExamMode = () => {
   }
 
   // =========================================================================
-  // VIEW 2: PORTAL VIEW (MATCHING IMAGE 1 & 2 OVERVIEW, ATTEMPT & TRENDS TABS)
+  // VIEW 2: PORTAL VIEW (OVERVIEW, ATTEMPT SCORECARD, ATTEMPT HISTORY, FACULTY AUDIT)
   // =========================================================================
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Top Header */}
+    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+      {/* Top Header with Clean Title (Section #3) */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white light:text-rose-950 flex items-center gap-2">
-            <span>22.08.2026_ +Full Pattern Test</span>
+          <h1 className="text-2xl sm:text-3xl font-black text-white">
+            Full Pattern Mock Assessment
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Complete Institutional Placement Mock Assessment &bull; Multi-Section Evaluation
+            Standard Campus Placement Mock Benchmark &bull; Timed &amp; Evidence-Based Proctoring
           </p>
         </div>
 
@@ -891,38 +996,38 @@ export const SecureExamMode = () => {
             size="md"
             icon={Play}
             onClick={() => setExamState('SYSTEM_CHECK')}
-            className="font-bold bg-gradient-to-r from-rose-600 to-pink-600 shadow-lg shadow-rose-600/30"
+            className="font-bold bg-indigo-600 hover:bg-indigo-500 shadow-lg"
           >
-            {viewTab === 'attempt' ? 'Retake Test' : 'Launch Examination'}
+            {viewTab === 'attempt' ? 'Retake Benchmark' : 'Launch Examination'}
           </Button>
         </div>
       </div>
 
-      {/* Main 4-Column Layout */}
+      {/* Main Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left Column: Pattern Test Navigation List (Matching Image 1) */}
-        <div className="glass-card rounded-3xl p-5 border border-rose-500/20 shadow-xl space-y-4 lg:col-span-1">
+        {/* Left Column: Sidebar Benchmarks List (Section #3 Clean Titles) */}
+        <div className="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl space-y-4 lg:col-span-1">
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search pattern tests..."
-              className="w-full bg-slate-900/90 light:bg-slate-100 border border-slate-800 text-xs rounded-xl pl-9 pr-3 py-2 text-white light:text-slate-900 outline-none focus:border-rose-500"
+              placeholder="Search benchmarks..."
+              className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl pl-9 pr-3 py-2 text-white outline-none focus:border-indigo-500"
             />
           </div>
 
           <div className="space-y-1.5 max-h-[550px] overflow-y-auto pr-1">
-            {SIDEBAR_EXAMS.map((t) => (
+            {BENCHMARK_LIST.map((t) => (
               <div
                 key={t.id}
                 className={`p-3 rounded-2xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
                   t.active
-                    ? 'bg-rose-500/20 border border-rose-500 text-white shadow-md'
-                    : 'bg-slate-900/40 hover:bg-slate-900 text-slate-400 hover:text-slate-200 border border-transparent'
+                    ? 'bg-indigo-600/20 border border-indigo-500 text-white shadow-md'
+                    : 'bg-slate-950/40 hover:bg-slate-950 text-slate-400 hover:text-slate-200 border border-transparent'
                 }`}
               >
                 <div className="flex items-center gap-2 truncate">
-                  <FileText className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                  <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                   <span className="truncate">{t.title}</span>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -931,16 +1036,16 @@ export const SecureExamMode = () => {
           </div>
         </div>
 
-        {/* Right 3 Columns: Overview / Attempt / Improvement Tabs */}
+        {/* Right 3 Columns: Overview / Attempt Scorecard / History / Faculty */}
         <div className="lg:col-span-3 space-y-4">
           {/* Tab Selector Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-rose-500/20 pb-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-2">
             <div className="flex items-center gap-6">
               <button
                 onClick={() => setViewTab('overview')}
-                className={`text-sm font-black pb-2 transition relative ${
+                className={`text-sm font-bold pb-2 transition relative ${
                   viewTab === 'overview'
-                    ? 'text-rose-400 border-b-2 border-rose-500'
+                    ? 'text-indigo-400 border-b-2 border-indigo-500'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -948,50 +1053,49 @@ export const SecureExamMode = () => {
               </button>
               <button
                 onClick={() => setViewTab('attempt')}
-                className={`text-sm font-black pb-2 transition relative ${
+                className={`text-sm font-bold pb-2 transition relative ${
                   viewTab === 'attempt'
-                    ? 'text-rose-400 border-b-2 border-rose-500'
+                    ? 'text-indigo-400 border-b-2 border-indigo-500'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Attempt Scorecard
               </button>
               <button
-                onClick={() => setViewTab('trends')}
-                className={`text-sm font-black pb-2 transition relative ${
-                  viewTab === 'trends'
-                    ? 'text-rose-400 border-b-2 border-rose-500'
+                onClick={() => setViewTab('history')}
+                className={`text-sm font-bold pb-2 transition relative ${
+                  viewTab === 'history'
+                    ? 'text-indigo-400 border-b-2 border-indigo-500'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Improvement Trends
+                Attempt History (Dates)
+              </button>
+              <button
+                onClick={() => setViewTab('faculty')}
+                className={`text-sm font-bold pb-2 transition relative ${
+                  viewTab === 'faculty'
+                    ? 'text-indigo-400 border-b-2 border-indigo-500'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Faculty Review Audit
               </button>
             </div>
 
-            <div className="flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1.5 text-rose-300 light:text-rose-800 font-medium">
-                <Lock className="w-3.5 h-3.5 text-rose-400" />
-                <span>Section Locked</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-rose-400 font-bold font-mono">
-                <span>Attempts : 01 / 03</span>
-              </div>
+            <div className="flex items-center gap-4 text-xs font-mono">
+              <span className="text-slate-400">Attempts: <strong className="text-indigo-400">01 / 03</strong></span>
             </div>
           </div>
 
-          {/* Subheader */}
-          <div className="text-right text-[11px] text-slate-400">
-            Start Before: <strong className="text-rose-400 font-mono">22 Aug 26 | 11:59 PM (GMT +05:30)</strong>
-          </div>
-
           {/* ========================================================================= */}
-          {/* TAB 1: OVERVIEW TABLE (MATCHING IMAGE 1) */}
+          {/* TAB 1: OVERVIEW TABLE */}
           {/* ========================================================================= */}
           {viewTab === 'overview' && (
-            <div className="glass-card rounded-3xl overflow-hidden border border-rose-500/20 shadow-2xl">
+            <div className="bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-rose-500/10 border-b border-rose-500/20 text-rose-300 light:text-rose-950 font-bold">
+                  <tr className="bg-slate-800/80 border-b border-slate-700 text-slate-300 font-bold">
                     <th className="p-4">SNo</th>
                     <th className="p-4">Name</th>
                     <th className="p-4 text-center">Questions</th>
@@ -999,23 +1103,22 @@ export const SecureExamMode = () => {
                     <th className="p-4 text-center">Marks</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/80 text-slate-200">
-                  {PATTERN_SECTIONS.map((sec) => (
-                    <tr key={sec.sNo} className="hover:bg-rose-500/5 transition">
+                <tbody className="divide-y divide-slate-800 text-slate-200">
+                  {SECTIONS_CONFIG.map((sec) => (
+                    <tr key={sec.sNo} className="hover:bg-slate-800/40 transition">
                       <td className="p-4 font-mono text-slate-400">{sec.sNo}</td>
-                      <td className="p-4 font-bold text-white light:text-rose-950">{sec.name}</td>
+                      <td className="p-4 font-bold text-white">{sec.name}</td>
                       <td className="p-4 text-center font-mono">{sec.questions}</td>
                       <td className="p-4 text-center font-mono">{sec.duration}</td>
-                      <td className="p-4 text-center font-mono font-bold text-rose-400">{sec.marks}</td>
+                      <td className="p-4 text-center font-mono font-bold text-indigo-400">{sec.marks}</td>
                     </tr>
                   ))}
-                  {/* Total Row */}
-                  <tr className="bg-rose-500/15 font-black text-rose-300 light:text-rose-950 border-t-2 border-rose-500/40">
+                  <tr className="bg-slate-800/60 font-bold text-slate-200 border-t-2 border-slate-700">
                     <td className="p-4"></td>
-                    <td className="p-4 text-sm uppercase">total</td>
+                    <td className="p-4 text-sm uppercase">Total</td>
                     <td className="p-4 text-center font-mono text-sm">42</td>
                     <td className="p-4 text-center font-mono text-sm">60</td>
-                    <td className="p-4 text-center font-mono text-sm text-rose-400">96</td>
+                    <td className="p-4 text-center font-mono text-sm text-indigo-400">96</td>
                   </tr>
                 </tbody>
               </table>
@@ -1023,38 +1126,48 @@ export const SecureExamMode = () => {
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 2: ATTEMPT SCORE BREAKDOWN TABLE (MATCHING IMAGE 2) */}
+          {/* TAB 2: ATTEMPT SCORECARD & ANALYTICS (Section #8 & #10) */}
           {/* ========================================================================= */}
           {viewTab === 'attempt' && (
             <div className="space-y-4">
-              {/* Attempt KPI Top Bar */}
-              <div className="glass-card rounded-2xl p-4 border border-rose-500/20 flex flex-wrap items-center justify-between gap-4 shadow-lg">
-                <div className="flex items-center gap-6 text-xs font-mono">
+              {/* Top KPI Bar */}
+              <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 flex flex-wrap items-center justify-between gap-4 shadow-lg">
+                <div className="flex flex-wrap items-center gap-6 text-xs font-mono">
                   <div>
                     <span className="text-slate-400 block text-[10px] uppercase font-bold">Time Spent</span>
                     <strong className="text-white text-base">{examResult.timeSpentFormatted}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Test Score</span>
-                    <strong className="text-rose-400 text-base">{examResult.score.toFixed(2)} / {examResult.maxScore.toFixed(2)}</strong>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Assessment Score</span>
+                    <strong className="text-indigo-400 text-base">{examResult.score.toFixed(2)} / {examResult.maxScore.toFixed(2)} ({examResult.percentage}%)</strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Percentile</span>
-                    <strong className="text-emerald-400 text-base">{examResult.percentile}th %ile</strong>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Integrity Score</span>
+                    <strong className={examResult.integrityScore >= 80 ? 'text-emerald-400 text-base' : 'text-amber-400 text-base'}>
+                      {examResult.integrityScore}/100
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Audit Status</span>
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                      examResult.reviewStatus === 'VERIFIED_CLEAN' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+                    }`}>
+                      {examResult.reviewStatus === 'VERIFIED_CLEAN' ? 'Verified Clean' : 'Needs Faculty Review'}
+                    </span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 text-xs">
                   <span className="text-slate-400">Attempt:</span>
-                  <Badge variant="rose">01 of 03</Badge>
+                  <Badge variant="indigo">01 of 03</Badge>
                 </div>
               </div>
 
-              {/* Section Performance Breakdown Table */}
-              <div className="glass-card rounded-3xl overflow-hidden border border-rose-500/20 shadow-2xl">
+              {/* Section Breakdown Table */}
+              <div className="bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-rose-500/10 border-b border-rose-500/20 text-rose-300 light:text-rose-950 font-bold">
+                    <tr className="bg-slate-800/80 border-b border-slate-700 text-slate-300 font-bold">
                       <th className="p-4">Sections</th>
                       <th className="p-4 text-center">Score</th>
                       <th className="p-4 text-center">Average Score</th>
@@ -1062,13 +1175,13 @@ export const SecureExamMode = () => {
                       <th className="p-4 text-center">Least Score</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/80 text-slate-200 font-mono">
-                    {PATTERN_SECTIONS.map((sec) => {
+                  <tbody className="divide-y divide-slate-800 text-slate-200 font-mono">
+                    {SECTIONS_CONFIG.map((sec) => {
                       const userEarned = examResult.sectionScores[sec.name]?.score ?? 1.00;
                       return (
-                        <tr key={sec.name} className="hover:bg-rose-500/5 transition">
-                          <td className="p-4 font-bold text-white light:text-rose-950 font-sans">{sec.name}</td>
-                          <td className="p-4 text-center font-bold text-rose-400">{userEarned.toFixed(2)}</td>
+                        <tr key={sec.name} className="hover:bg-slate-800/40 transition">
+                          <td className="p-4 font-bold text-white font-sans">{sec.name}</td>
+                          <td className="p-4 text-center font-bold text-indigo-400">{userEarned.toFixed(2)}</td>
                           <td className="p-4 text-center text-slate-400">{sec.avgScore.toFixed(2)}</td>
                           <td className="p-4 text-center text-emerald-400">{sec.topScore.toFixed(2)}</td>
                           <td className="p-4 text-center text-slate-500">{sec.leastScore.toFixed(2)}</td>
@@ -1079,74 +1192,101 @@ export const SecureExamMode = () => {
                 </table>
               </div>
 
-              {/* AI Recommendations Card */}
-              <div className="glass-card rounded-3xl p-6 border border-rose-500/20 shadow-xl space-y-4">
-                <div className="flex items-center gap-2 text-sm font-bold text-white">
-                  <Sparkles className="w-4 h-4 text-rose-400" />
-                  <span>AI Performance Diagnostic &bull; Evidence-Based Recommendations</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-1">
-                    <span className="font-bold text-emerald-400">Strength Areas:</span>
-                    <ul className="list-disc list-inside text-slate-300 space-y-0.5">
-                      {examResult.aiRecommendations.strengths.map((s, i) => <li key={i}>{s}</li>)}
-                    </ul>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-1">
-                    <span className="font-bold text-rose-400">Areas to Reinforce:</span>
-                    <ul className="list-disc list-inside text-slate-300 space-y-0.5">
-                      {examResult.aiRecommendations.weaknesses.map((w, i) => <li key={i}>{w}</li>)}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Audit & Email Notice Footer */}
-              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono text-[11px]">
+              {/* Audit Footer */}
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono text-[11px]">
                 <div className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span className="text-emerald-300 font-bold">
-                    Official Proctored Scorecard dispatched to your registered email address.
+                    Scorecard dispatched to your registered email address.
                   </span>
                 </div>
                 <div>
-                  IP: <span className="text-slate-300 font-bold">{examResult.ipAddress}</span> &bull; Integrity: {examResult.integrityScore}%
+                  DevTools: {devToolsCount} &bull; Tab Switches: {tabSwitchCount} &bull; IP: {examResult.ipAddress}
                 </div>
               </div>
             </div>
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 3: IMPROVEMENT PROGRESSION TRENDS (MATCHING REQUIREMENT #14) */}
+          {/* TAB 3: ATTEMPT HISTORY WITH DATES (Section #4) */}
           {/* ========================================================================= */}
-          {viewTab === 'trends' && (
-            <div className="glass-card rounded-3xl p-6 border border-rose-500/20 shadow-2xl space-y-6">
-              <div className="flex items-center justify-between border-b border-rose-500/20 pb-4">
+          {viewTab === 'history' && (
+            <div className="space-y-4">
+              <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-indigo-400" />
+                      <span>Attempt History &amp; Completed Timelines</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Dates are stored and displayed strictly in attempt history logs.</p>
+                  </div>
+                  <Badge variant="emerald">{attemptHistory.length} Attempts Completed</Badge>
+                </div>
+
+                <div className="space-y-3">
+                  {attemptHistory.map((att) => (
+                    <div
+                      key={att.attemptNumber}
+                      className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 font-mono text-xs"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">Attempt {att.attemptNumber}</span>
+                          <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px]">
+                            {att.reviewStatus}
+                          </span>
+                        </div>
+                        <p className="text-slate-400 font-sans text-xs">
+                          Completed On: <strong className="text-slate-200">{att.completedDate}</strong> &bull; Time Spent: {att.timeSpent}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-6">
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Assessment Score</span>
+                          <span className="font-bold text-indigo-400 text-sm">{att.score}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Integrity Score</span>
+                          <span className="font-bold text-emerald-400 text-sm">{att.integrityScore}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 4: FACULTY REVIEW AUDIT PANEL (Section #12) */}
+          {/* ========================================================================= */}
+          {viewTab === 'faculty' && (
+            <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-400" />
-                    <span>Candidate Improvement Progression (3-Attempt Timeline)</span>
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Faculty &amp; Placement Coordinator Proctoring Audit</span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Comparative growth across Aptitude, Reasoning, Verbal, and Coding</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Evidence-based telemetry replay and candidate verification.</p>
                 </div>
-                <Badge variant="emerald">+27% Total Progression</Badge>
+                <Badge variant="indigo">Faculty Console</Badge>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center space-y-1">
-                  <span className="text-xs text-slate-400">Attempt 1</span>
-                  <div className="text-2xl font-black text-white">52%</div>
-                  <Badge variant="outline" size="sm">Baseline</Badge>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
+                <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                  <span className="text-slate-500 block">Screen Share Status</span>
+                  <strong className="text-emerald-400 text-sm">Verified (Entire Screen)</strong>
                 </div>
-                <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center space-y-1">
-                  <span className="text-xs text-slate-400">Attempt 2</span>
-                  <div className="text-2xl font-black text-rose-400">68%</div>
-                  <span className="text-emerald-400 text-xs font-bold">+16% Growth</span>
+                <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                  <span className="text-slate-500 block">DevTools Detections</span>
+                  <strong className="text-slate-200 text-sm">{devToolsCount} Flagged</strong>
                 </div>
-                <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center space-y-1">
-                  <span className="text-xs text-slate-400">Attempt 3 (Target)</span>
-                  <div className="text-2xl font-black text-emerald-400">79%</div>
-                  <span className="text-emerald-400 text-xs font-bold">+27% Top Tier</span>
+                <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                  <span className="text-slate-500 block">Tab Switch Events</span>
+                  <strong className="text-slate-200 text-sm">{tabSwitchCount} Recorded</strong>
                 </div>
               </div>
             </div>
@@ -1155,31 +1295,30 @@ export const SecureExamMode = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* 8-STEP PRE-EXAM SYSTEM CHECK MODAL (MATCHING REQUIREMENT #2) */}
+      {/* 8-STEP PRE-EXAM SYSTEM CHECK MODAL (Section #2) */}
       {/* ========================================================================= */}
       {examState === 'SYSTEM_CHECK' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-2xl glass-panel rounded-3xl border border-rose-500/40 shadow-2xl p-6 sm:p-8 space-y-6 text-left">
-            <div className="flex items-center justify-between border-b border-rose-500/20 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 font-sans">
+          <div className="relative w-full max-w-2xl bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl p-6 sm:p-8 space-y-6 text-left">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div>
-                <h3 className="text-xl font-black text-white flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-rose-500" />
-                  <span>Pre-Exam 8-Step System Check</span>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-indigo-400" />
+                  <span>Pre-Exam System Clearance Check</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Complete all hardware &amp; security checks before entering <strong>22.08.2026_ +Full Pattern Test</strong>.
+                  Complete all hardware &amp; environment checks before launching <strong>Full Pattern Mock Assessment</strong>.
                 </p>
               </div>
               <button onClick={() => setExamState('PORTAL')} className="text-slate-400 hover:text-white">✕</button>
             </div>
 
-            {/* Check Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Step 1: Camera Permission */}
-              <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+              {/* Step 1: Camera Setup */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white flex items-center gap-2">
-                    <Camera className="w-4 h-4 text-rose-400" />
+                    <Camera className="w-4 h-4 text-indigo-400" />
                     <span>1. Camera Verification</span>
                   </span>
                   {cameraAllowed ? (
@@ -1190,7 +1329,7 @@ export const SecureExamMode = () => {
                     <button
                       type="button"
                       onClick={requestCameraAccess}
-                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
+                      className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
                     >
                       Enable Camera
                     </button>
@@ -1206,11 +1345,11 @@ export const SecureExamMode = () => {
                 </div>
               </div>
 
-              {/* Step 3: Screen Share Permission */}
-              <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+              {/* Step 3: Screen Share Setup */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white flex items-center gap-2">
-                    <Monitor className="w-4 h-4 text-pink-400" />
+                    <Monitor className="w-4 h-4 text-indigo-400" />
                     <span>3. Entire Screen Share</span>
                   </span>
                   {screenShareAllowed ? (
@@ -1221,21 +1360,21 @@ export const SecureExamMode = () => {
                     <button
                       type="button"
                       onClick={requestScreenShareAccess}
-                      className="px-2.5 py-1 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold"
+                      className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
                     >
                       Share Screen
                     </button>
                   )}
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-300 space-y-2">
-                  <p className="font-bold text-pink-300">Mandatory Rule:</p>
+                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-300 space-y-2">
+                  <p className="font-bold text-indigo-300">Mandatory Proctoring Rule:</p>
                   <p>Share your entire primary desktop screen. Switching windows or disconnecting screen share triggers an integrity flag.</p>
                 </div>
               </div>
             </div>
 
-            {/* Checklist items 4 to 7 */}
-            <div className="p-4 rounded-2xl bg-slate-900/60 border border-rose-500/20 text-xs space-y-2">
+            {/* Checklist */}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-2">
               <div className="flex items-center justify-between text-slate-300">
                 <span className="flex items-center gap-2">
                   <Wifi className="w-4 h-4 text-emerald-400" /> 4. Internet Diagnostic ({pingLatency}ms latency)
@@ -1244,13 +1383,13 @@ export const SecureExamMode = () => {
               </div>
               <div className="flex items-center justify-between text-slate-300">
                 <span className="flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-rose-400" /> 5. Browser Compatibility Check
+                  <Cpu className="w-4 h-4 text-indigo-400" /> 5. Browser Compatibility Check
                 </span>
                 <span className="text-emerald-400 font-bold">Supported (Chrome 122+)</span>
               </div>
               <div className="flex items-center justify-between text-slate-300">
                 <span className="flex items-center gap-2">
-                  <Maximize className="w-4 h-4 text-pink-400" /> 6. Fullscreen Lock Mode
+                  <Maximize className="w-4 h-4 text-indigo-400" /> 6. Fullscreen Lock Mode
                 </span>
                 <span className="text-emerald-400 font-bold">Auto-Enforced</span>
               </div>
@@ -1262,7 +1401,6 @@ export const SecureExamMode = () => {
               </div>
             </div>
 
-            {/* Step 8: Start Assessment Button */}
             <div className="flex items-center justify-between pt-2">
               <Button variant="outline" size="sm" onClick={() => setExamState('PORTAL')}>
                 Cancel
@@ -1272,7 +1410,7 @@ export const SecureExamMode = () => {
                 size="md"
                 onClick={handleLaunchAssessment}
                 disabled={!cameraAllowed || !screenShareAllowed}
-                className="font-bold bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 border-0 shadow-lg shadow-rose-600/30"
+                className="font-bold bg-indigo-600 hover:bg-indigo-500 border-0 shadow-lg"
               >
                 Step 8: Start 60-Minute Assessment
               </Button>

@@ -41,7 +41,16 @@ const assessmentSubmissionSchema = new mongoose.Schema(
     },
     integrityScore: {
       type: Number,
-      default: 100, // Reduced when integrity events occur
+      default: 100, // Starts at 100, reduced for logged violations
+    },
+    reviewStatus: {
+      type: String,
+      enum: ["VERIFIED_CLEAN", "NEEDS_FACULTY_REVIEW", "PENALIZED", "FLAGGED"],
+      default: "VERIFIED_CLEAN",
+    },
+    facultyReviewNotes: {
+      type: String,
+      default: "",
     },
     screenShareGranted: {
       type: Boolean,
@@ -59,9 +68,25 @@ const assessmentSubmissionSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    devToolsCount: {
+      type: Number,
+      default: 0,
+    },
+    cameraInterruptionCount: {
+      type: Number,
+      default: 0,
+    },
+    networkInterruptionCount: {
+      type: Number,
+      default: 0,
+    },
     warningCount: {
       type: Number,
       default: 0,
+    },
+    difficultyProfile: {
+      type: String,
+      default: "Easy + Medium",
     },
     sectionScores: {
       type: mongoose.Schema.Types.Mixed,
