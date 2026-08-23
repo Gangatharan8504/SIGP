@@ -457,6 +457,15 @@ const recommendCareers = async () => {
     },
     {
       role: "AI / ML Solutions Engineer",
+      matchPercentage: 78,
+      demand: "Very High",
+      averageSalaryLPA: "16 - 36 LPA",
+      keySkillsNeeded: ["Python", "PyTorch", "LLM RAG", "Vector DBs", "FastAPI"],
+      description: "Integrate generative AI workflows, RAG systems, and predictive models into enterprise software.",
+    },
+  ];
+};
+
 const getFullPatternDefaultExam = (attemptNumber = 1) => {
   const diff = attemptNumber === 1 ? "Easy + Medium" : attemptNumber === 2 ? "Medium" : "Medium + Hard";
 
