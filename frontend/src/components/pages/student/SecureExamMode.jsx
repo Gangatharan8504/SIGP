@@ -59,6 +59,346 @@ const BENCHMARK_LIST = [
   { id: 'core-cs', title: 'Core Computer Science & Systems Diagnostic', category: 'Core CS', active: false },
 ];
 
+// Rich Curated 42 Placement Question Bank (10 Aptitude + 10 Reasoning + 10 Verbal + 10 Pseudo Code + 2 Coding)
+const INITIAL_QUESTIONS_BANK = {
+  Aptitude: [
+    {
+      id: "apt_1",
+      topic: "Speed, Time & Distance",
+      question: "A train running at 60 km/hr crosses a pole in 9 seconds. What is the length of the train in meters?",
+      difficulty: "easy",
+      options: ["120 meters", "150 meters", "180 meters", "324 meters"],
+    },
+    {
+      id: "apt_2",
+      topic: "Time and Work Efficiency",
+      question: "A can complete a piece of work in 12 days, and B can complete the same work in 18 days. If they work together for 4 days, what fraction of the work remains?",
+      difficulty: "medium",
+      options: ["4/9", "5/9", "1/3", "2/5"],
+    },
+    {
+      id: "apt_3",
+      topic: "Profit and Loss Margin",
+      question: "An article is sold at a 15% discount on marked price, yielding a profit of 20%. If marked price is $120, what is the cost price?",
+      difficulty: "medium",
+      options: ["$85", "$90", "$95", "$100"],
+    },
+    {
+      id: "apt_4",
+      topic: "Permutations & Combinations",
+      question: "In how many distinct ways can the letters of the word 'LEADER' be arranged such that vowels always stay together?",
+      difficulty: "medium",
+      options: ["72", "144", "360", "48"],
+    },
+    {
+      id: "apt_5",
+      topic: "Compound Interest Compounding",
+      question: "A sum of money invested at compound interest doubles itself in 4 years. In how many years will it become 8 times of itself at the same rate?",
+      difficulty: "medium",
+      options: ["8 years", "12 years", "16 years", "24 years"],
+    },
+    {
+      id: "apt_6",
+      topic: "Probability of Dice Roll",
+      question: "Two unbiased dice are rolled simultaneously. What is the probability that the sum of the numbers appearing on top is a prime number?",
+      difficulty: "medium",
+      options: ["5/12", "7/36", "1/2", "11/36"],
+    },
+    {
+      id: "apt_7",
+      topic: "Ratios & Mixtures",
+      question: "A mixture of 60 liters contains milk and water in the ratio 2:1. How much water must be added to make the ratio of milk to water 1:2?",
+      difficulty: "medium",
+      options: ["40 liters", "60 liters", "30 liters", "50 liters"],
+    },
+    {
+      id: "apt_8",
+      topic: "Pipes & Cisterns",
+      question: "Pipe A can fill a tank in 6 hours, and Pipe B can empty it in 8 hours. If both pipes are opened simultaneously, in how many hours will the tank be filled?",
+      difficulty: "easy",
+      options: ["12 hours", "24 hours", "18 hours", "14 hours"],
+    },
+    {
+      id: "apt_9",
+      topic: "Averages & Age Progression",
+      question: "The average age of a family of 5 members is 24 years. If the age of the youngest member is 8 years, what was the average age of the family at the birth of the youngest member?",
+      difficulty: "medium",
+      options: ["16 years", "20 years", "18 years", "22 years"],
+    },
+    {
+      id: "apt_10",
+      topic: "Number System Divisibility",
+      question: "What is the smallest number which when divided by 8, 12, and 16 leaves a remainder of 3 in each case?",
+      difficulty: "easy",
+      options: ["45", "51", "99", "48"],
+    }
+  ],
+  Reasoning: [
+    {
+      id: "reas_1",
+      topic: "Blood Relations Deduction",
+      question: "Pointing to a photograph, Suresh said, 'He is the son of the only son of my mother.' How is Suresh related to the boy?",
+      difficulty: "easy",
+      options: ["Brother", "Father", "Uncle", "Grandfather"],
+    },
+    {
+      id: "reas_2",
+      topic: "Direction Sense Tracking",
+      question: "A man walks 5 km East, turns right and walks 4 km, then turns left and walks 5 km. In which direction is he from the starting point?",
+      difficulty: "medium",
+      options: ["South-East", "North-East", "South", "East"],
+    },
+    {
+      id: "reas_3",
+      topic: "Coding-Decoding Pattern",
+      question: "In a certain code language, 'SYSTEM' is coded as 'SYSMET' and 'NEARER' is coded as 'AENRER'. How is 'FRACTION' coded?",
+      difficulty: "medium",
+      options: ["CARFNOIT", "NOITCARF", "ARFCNOIT", "CRAFINTO"],
+    },
+    {
+      id: "reas_4",
+      topic: "Syllogisms Validity",
+      question: "Statements: All cars are cats. All cats are fans. Conclusions: I. All cars are fans. II. Some fans are cars.",
+      difficulty: "easy",
+      options: ["Only I follows", "Only II follows", "Both I and II follow", "Neither follows"],
+    },
+    {
+      id: "reas_5",
+      topic: "Circular Seating Arrangement",
+      question: "6 people A, B, C, D, E, F sit facing the center. A sits opposite B. C sits between A and D. E sits to the immediate left of B. Who sits opposite C?",
+      difficulty: "medium",
+      options: ["E", "F", "D", "B"],
+    },
+    {
+      id: "reas_6",
+      topic: "Number Series Completion",
+      question: "Find the next number in the series: 7, 26, 63, 124, 215, ?",
+      difficulty: "medium",
+      options: ["342", "343", "256", "512"],
+    },
+    {
+      id: "reas_7",
+      topic: "Statement and Assumption",
+      question: "Statement: 'Please consult a doctor before taking this medicine.' Assumptions: I. Many people take medicines without medical consultation. II. Doctors know appropriate medicine dosages.",
+      difficulty: "easy",
+      options: ["Only I is implicit", "Only II is implicit", "Both I and II are implicit", "Neither is implicit"],
+    },
+    {
+      id: "reas_8",
+      topic: "Analogy Matrix",
+      question: "Thermometer : Temperature :: Hygrometer : ?",
+      difficulty: "easy",
+      options: ["Pressure", "Humidity", "Density", "Altitude"],
+    },
+    {
+      id: "reas_9",
+      topic: "Clocks and Angles",
+      question: "What is the angle between the minute hand and the hour hand of a clock at 3:40?",
+      difficulty: "medium",
+      options: ["120°", "130°", "140°", "125°"],
+    },
+    {
+      id: "reas_10",
+      topic: "Data Sufficiency",
+      question: "Who is the tallest among P, Q, R, S, T? Statement 1: P is taller than Q but shorter than R. Statement 2: T is shorter than S but taller than R.",
+      difficulty: "medium",
+      options: ["Statement 1 alone is sufficient", "Both Statements 1 and 2 together are sufficient", "Statement 2 alone is sufficient", "Statements are not sufficient"],
+    }
+  ],
+  Verbal: [
+    {
+      id: "verb_1",
+      topic: "Synonym Identification",
+      question: "Choose the word most nearly similar in meaning to: 'PRAGMATIC'",
+      difficulty: "easy",
+      options: ["Theoretical", "Practical", "Idealistic", "Vague"],
+    },
+    {
+      id: "verb_2",
+      topic: "Sentence Correction",
+      question: "Identify the grammatically correct sentence:",
+      difficulty: "easy",
+      options: ["Neither the teacher nor the students was present.", "Neither the teacher nor the students were present.", "Neither the teacher or the students was present.", "Neither the teacher nor the students is present."],
+    },
+    {
+      id: "verb_3",
+      topic: "Antonym Identification",
+      question: "Select the word opposite in meaning to: 'METICULOUS'",
+      difficulty: "easy",
+      options: ["Careless", "Accurate", "Fastidious", "Thorough"],
+    },
+    {
+      id: "verb_4",
+      topic: "Idioms and Phrases",
+      question: "What is the meaning of the idiom: 'To beat around the bush'?",
+      difficulty: "easy",
+      options: ["To search thoroughly", "To avoid the main topic", "To win easily", "To act aggressively"],
+    },
+    {
+      id: "verb_5",
+      topic: "Para Jumbles Sequence",
+      question: "Arrange the parts in proper order: P: in developing country Q: plays an indispensable role R: education S: in economic upliftment",
+      difficulty: "medium",
+      options: ["R-Q-S-P", "P-R-Q-S", "Q-S-P-R", "S-P-R-Q"],
+    },
+    {
+      id: "verb_6",
+      topic: "Spotting Errors",
+      question: "Find the part with error: 'One of the candidate (A) / who attended the interview (B) / was selected for the role (C) / No Error (D)'",
+      difficulty: "medium",
+      options: ["Part A ('One of the candidate')", "Part B", "Part C", "No Error"],
+    },
+    {
+      id: "verb_7",
+      topic: "One Word Substitution",
+      question: "A person who is fluent in two languages is termed as:",
+      difficulty: "easy",
+      options: ["Bilingual", "Polyglot", "Linguist", "Monolingual"],
+    },
+    {
+      id: "verb_8",
+      topic: "Prepositions",
+      question: "The manager was astonished ______ the exceptional performance of the new intern.",
+      difficulty: "easy",
+      options: ["at", "with", "for", "in"],
+    },
+    {
+      id: "verb_9",
+      topic: "Active and Passive Voice",
+      question: "Convert to passive: 'The developer deployed the new microservice yesterday.'",
+      difficulty: "medium",
+      options: ["The new microservice was deployed by the developer yesterday.", "The new microservice had been deployed yesterday.", "The new microservice is deployed by the developer.", "The new microservice were deployed by the developer."],
+    },
+    {
+      id: "verb_10",
+      topic: "Reading Comprehension Inference",
+      question: "'Automation eliminates repetitive cognitive overhead, enabling engineers to focus on architectural resilience.' What is the primary takeaway?",
+      difficulty: "medium",
+      options: ["Automation completely replaces engineering staff.", "Automation shifts engineering focus toward higher-order design problems.", "Repetitive tasks are essential for system resilience.", "Engineers should avoid architectural tasks."],
+    }
+  ],
+  'Pseudo Code': [
+    {
+      id: "pseudo_1",
+      topic: "Recursive Function Trace",
+      question: "What is the exact return value of compute(4)?",
+      codeSnippet: "function compute(n) {\n    if (n <= 1) return 1;\n    return n * compute(n - 1) + 2;\n}",
+      difficulty: "medium",
+      options: ["26", "32", "28", "24"],
+    },
+    {
+      id: "pseudo_2",
+      topic: "Bitwise Shift Operations",
+      question: "What is the final value of x after execution?",
+      codeSnippet: "int a = 5, b = 3;\nint x = (a << 2) ^ (b >> 1);",
+      difficulty: "easy",
+      options: ["21", "20", "19", "22"],
+    },
+    {
+      id: "pseudo_3",
+      topic: "Nested Loop Counter",
+      question: "How many times does count get incremented in the code below?",
+      codeSnippet: "int count = 0;\nfor (int i = 1; i <= 4; i++) {\n    for (int j = i; j <= 4; j++) {\n        count++;\n    }\n}",
+      difficulty: "easy",
+      options: ["10", "16", "8", "12"],
+    },
+    {
+      id: "pseudo_4",
+      topic: "Modulo and Division Logic",
+      question: "What is the printed output of the code below?",
+      codeSnippet: "int val = 47;\nint ans = 0;\nwhile (val > 0) {\n    ans = ans + (val % 10);\n    val = val / 10;\n}\nprint(ans);",
+      difficulty: "easy",
+      options: ["11", "47", "7", "4"],
+    },
+    {
+      id: "pseudo_5",
+      topic: "Array Pointer Traversal",
+      question: "What will be printed after the pointer arithmetic operations?",
+      codeSnippet: "int arr[] = {10, 20, 30, 40, 50};\nint *p = arr;\np = p + 2;\nprint(*p + *(p + 1));",
+      difficulty: "medium",
+      options: ["70", "50", "60", "90"],
+    },
+    {
+      id: "pseudo_6",
+      topic: "Ternary Operator Chaining",
+      question: "What is the computed value of res?",
+      codeSnippet: "int a = 10, b = 20, c = 15;\nint res = (a > b) ? ((a > c) ? a : c) : ((b > c) ? b : c);",
+      difficulty: "easy",
+      options: ["20", "15", "10", "0"],
+    },
+    {
+      id: "pseudo_7",
+      topic: "String Character ASCII Difference",
+      question: "What does the function call evaluate('d', 'a') return?",
+      codeSnippet: "function evaluate(char c1, char c2) {\n    return (c1 - c2) * 2;\n}",
+      difficulty: "easy",
+      options: ["6", "3", "8", "4"],
+    },
+    {
+      id: "pseudo_8",
+      topic: "Short-Circuit Logical Evaluation",
+      question: "What are the final values of a and b after evaluating the condition?",
+      codeSnippet: "int a = 5, b = 10;\nif (a > 2 || ++b > 10) {\n    a = a + 2;\n}\nprint(a, b);",
+      difficulty: "medium",
+      options: ["7, 10", "7, 11", "5, 10", "5, 11"],
+    },
+    {
+      id: "pseudo_9",
+      topic: "Tail Recursion Accumulator",
+      question: "What is the return value of mystery(3, 1)?",
+      codeSnippet: "function mystery(n, acc) {\n    if (n == 0) return acc;\n    return mystery(n - 1, acc * 3);\n}",
+      difficulty: "medium",
+      options: ["27", "9", "81", "3"],
+    },
+    {
+      id: "pseudo_10",
+      topic: "Bitwise Mask Checking",
+      question: "Which condition correctly checks if the 3rd bit (index 2) of integer num is SET?",
+      codeSnippet: "// Select the correct bitwise conditional expression",
+      difficulty: "medium",
+      options: ["(num & (1 << 2)) != 0", "(num | (1 << 2)) == 0", "(num ^ (1 << 2)) == 0", "(num >> 2) == 0"],
+    }
+  ],
+  Coding: [
+    {
+      id: "c1",
+      title: "Two Sum Optimal Linear Traversal",
+      topic: "Arrays & Hash Maps",
+      difficulty: "medium",
+      marks: 1,
+      description: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target in O(n) linear time complexity.",
+      starterCode: {
+        java: "import java.util.*;\n\nclass Solution {\n    public int[] twoSum(int[] nums, int target) {\n        Map<Integer, Integer> map = new HashMap<>();\n        for (int i = 0; i < nums.length; i++) {\n            int comp = target - nums[i];\n            if (map.containsKey(comp)) {\n                return new int[] { map.get(comp), i };\n            }\n            map.put(nums[i], i);\n        }\n        return new int[] {};\n    }\n}",
+        python: "def twoSum(nums: list[int], target: int) -> list[int]:\n    seen = {}\n    for i, num in enumerate(nums):\n        comp = target - num\n        if comp in seen:\n            return [seen[comp], i]\n        seen[num] = i\n    return []",
+        cpp: "#include <vector>\n#include <unordered_map>\nusing namespace std;\n\nclass Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        unordered_map<int, int> map;\n        for (int i = 0; i < nums.size(); i++) {\n            int comp = target - nums[i];\n            if (map.find(comp) != map.end()) return {map[comp], i};\n            map[nums[i]] = i;\n        }\n        return {};\n    }\n};",
+        javascript: "function twoSum(nums, target) {\n  const map = new Map();\n  for (let i = 0; i < nums.length; i++) {\n    const comp = target - nums[i];\n    if (map.has(comp)) return [map.get(comp), i];\n    map.set(nums[i], i);\n  }\n  return [];\n}"
+      },
+      testCases: [
+        { input: "nums = [2,7,11,15], target = 9", output: "[0, 1]" },
+        { input: "nums = [3,2,4], target = 6", output: "[1, 2]" }
+      ]
+    },
+    {
+      id: "c2",
+      title: "Longest Substring Without Repeating Characters",
+      topic: "Sliding Window & Hash Sets",
+      difficulty: "hard",
+      marks: 1,
+      description: "Given a string s, find the length of the longest substring without duplicate characters using a sliding window and set technique.",
+      starterCode: {
+        java: "import java.util.*;\n\nclass Solution {\n    public int lengthOfLongestSubstring(String s) {\n        Set<Character> set = new HashSet<>();\n        int maxLen = 0, left = 0;\n        for (int right = 0; right < s.length(); right++) {\n            while (set.contains(s.charAt(right))) {\n                set.remove(s.charAt(left++));\n            }\n            set.add(s.charAt(right));\n            maxLen = Math.max(maxLen, right - left + 1);\n        }\n        return maxLen;\n    }\n}",
+        python: "def lengthOfLongestSubstring(s: str) -> int:\n    char_set = set()\n    left = 0\n    res = 0\n    for right in range(len(s)):\n        while s[right] in char_set:\n            char_set.remove(s[left])\n            left += 1\n        char_set.add(s[right])\n        res = max(res, right - left + 1)\n    return res",
+        cpp: "#include <string>\n#include <unordered_set>\nusing namespace std;\n\nclass Solution {\npublic:\n    int lengthOfLongestSubstring(string s) {\n        unordered_set<char> set;\n        int maxLen = 0, left = 0;\n        for (int right = 0; right < s.length(); right++) {\n            while (set.count(s[right])) set.erase(s[left++]);\n            set.insert(s[right]);\n            maxLen = max(maxLen, right - left + 1);\n        }\n        return maxLen;\n    }\n};",
+        javascript: "function lengthOfLongestSubstring(s) {\n  let set = new Set(), max = 0, left = 0;\n  for (let right = 0; right < s.length; right++) {\n    while (set.has(s[right])) set.delete(s[left++]);\n    set.add(s[right]);\n    max = Math.max(max, right - left + 1);\n  }\n  return max;\n}"
+      },
+      testCases: [
+        { input: "s = 'abcabcbb'", output: "3" },
+        { input: "s = 'bbbbb'", output: "1" }
+      ]
+    }
+  ]
+};
+
 export const SecureExamMode = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -75,13 +415,7 @@ export const SecureExamMode = () => {
   const [examState, setExamState] = useState('PORTAL'); // 'PORTAL' | 'SYSTEM_CHECK' | 'IN_PROGRESS' | 'PAUSED' | 'SUBMITTED'
 
   // Dynamic 42-Question Repository loaded from backend
-  const [questionsBank, setQuestionsBank] = useState({
-    Aptitude: [],
-    Reasoning: [],
-    Verbal: [],
-    'Pseudo Code': [],
-    Coding: [],
-  });
+  const [questionsBank, setQuestionsBank] = useState(INITIAL_QUESTIONS_BANK);
 
   // Pre-Check 8-Step Verification
   const [cameraAllowed, setCameraAllowed] = useState(false);
@@ -100,7 +434,10 @@ export const SecureExamMode = () => {
   const [markedForReview, setMarkedForReview] = useState({});
   const [codingActiveIndex, setCodingActiveIndex] = useState(0);
   const [codingLanguage, setCodingLanguage] = useState('java');
-  const [codingDrafts, setCodingDrafts] = useState({});
+  const [codingDrafts, setCodingDrafts] = useState({
+    c1: INITIAL_QUESTIONS_BANK.Coding[0].starterCode.java,
+    c2: INITIAL_QUESTIONS_BANK.Coding[1].starterCode.java,
+  });
   const [codeConsoleOutput, setCodeConsoleOutput] = useState('');
   const [isRunningCode, setIsRunningCode] = useState(false);
 
@@ -448,20 +785,20 @@ export const SecureExamMode = () => {
         if (res.data.dynamicExam?.sections) {
           const dynamicSections = res.data.dynamicExam.sections;
           setQuestionsBank({
-            Aptitude: dynamicSections.Aptitude || dynamicSections.aptitude || [],
-            Reasoning: dynamicSections.Reasoning || dynamicSections.reasoning || [],
-            Verbal: dynamicSections.Verbal || dynamicSections.verbal || [],
-            'Pseudo Code': dynamicSections['Pseudo Code'] || dynamicSections.pseudoCode || [],
-            Coding: dynamicSections.Coding || dynamicSections.coding || [],
+            Aptitude: dynamicSections.Aptitude || dynamicSections.aptitude || INITIAL_QUESTIONS_BANK.Aptitude,
+            Reasoning: dynamicSections.Reasoning || dynamicSections.reasoning || INITIAL_QUESTIONS_BANK.Reasoning,
+            Verbal: dynamicSections.Verbal || dynamicSections.verbal || INITIAL_QUESTIONS_BANK.Verbal,
+            'Pseudo Code': dynamicSections['Pseudo Code'] || dynamicSections.pseudoCode || INITIAL_QUESTIONS_BANK['Pseudo Code'],
+            Coding: dynamicSections.Coding || dynamicSections.coding || INITIAL_QUESTIONS_BANK.Coding,
           });
 
           // Set coding drafts
-          const codingProbs = dynamicSections.Coding || dynamicSections.coding || [];
+          const codingProbs = dynamicSections.Coding || dynamicSections.coding || INITIAL_QUESTIONS_BANK.Coding;
           if (codingProbs.length > 0) {
             const initialDrafts = res.data.savedCodingAnswers || {};
             codingProbs.forEach((cp) => {
               if (!initialDrafts[cp.id]) {
-                initialDrafts[cp.id] = cp.starterCode?.java || '';
+                initialDrafts[cp.id] = cp.starterCode?.java || INITIAL_QUESTIONS_BANK.Coding[0].starterCode.java;
               }
             });
             setCodingDrafts(initialDrafts);
@@ -487,10 +824,7 @@ export const SecureExamMode = () => {
   // Coding Runner
   const handleRunCodeTestCases = () => {
     setIsRunningCode(true);
-    const activeProb = (questionsBank.Coding && questionsBank.Coding[codingActiveIndex]) || {
-      title: 'Problem 1',
-      testCases: [{ input: 'nums = [2,7,11,15], target = 9', output: '[0, 1]' }]
-    };
+    const activeProb = (questionsBank.Coding && questionsBank.Coding[codingActiveIndex]) || INITIAL_QUESTIONS_BANK.Coding[0];
     const tc1 = activeProb.testCases?.[0] || { input: 'Default input', output: 'Expected output' };
     setCodeConsoleOutput(`[Compiler]: Executing Solution.${codingLanguage === 'java' ? 'java' : codingLanguage === 'python' ? 'py' : 'cpp'}...\n✓ Test Case 1: Input: ${tc1.input} -> Output: ${tc1.output} (Passed - 1ms)\n✓ Test Case 2: Validation Check (Passed - 2ms)\n\nAll Test Cases Verified! (Execution: 24ms, Memory: 38.2MB)`);
     setTimeout(() => setIsRunningCode(false), 500);
@@ -553,58 +887,58 @@ export const SecureExamMode = () => {
   }
 
   // Active Question Object from Question Bank
-  const currentSectionQuestions = questionsBank[activeSectionName] || [];
-  const currentQuestion = currentSectionQuestions[currentQIndex] || currentSectionQuestions[0] || {
+  const currentSectionQuestions = questionsBank[activeSectionName] || INITIAL_QUESTIONS_BANK[activeSectionName] || [];
+  const currentQuestion = currentSectionQuestions[currentQIndex] || currentSectionQuestions[0] || INITIAL_QUESTIONS_BANK[activeSectionName]?.[0] || {
     title: `${activeSectionName} Question ${currentQIndex + 1}`,
-    description: `Diagnostic problem for ${activeSectionName}.`,
-    options: ["Option A", "Option B", "Option C", "Option D"],
+    question: `A train running at 60 km/hr crosses a pole in 9 seconds. What is the length of the train in meters?`,
+    options: ["120 meters", "150 meters", "180 meters", "324 meters"],
     marks: 1,
   };
 
   // =========================================================================
-  // VIEW 1: ACTIVE IN-PROGRESS PROCTORED EXAMINATION WORKSPACE
+  // VIEW 1: ACTIVE IN-PROGRESS PROCTORED EXAMINATION WORKSPACE (FULLSCREEN ISOLATED OVERLAY)
   // =========================================================================
   if (examState === 'IN_PROGRESS' || examState === 'PAUSED') {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col select-none font-sans">
+      <div className="fixed inset-0 z-[9999] bg-slate-950 text-slate-100 flex flex-col select-none font-sans overflow-y-auto">
         {/* Sticky Top Status Header */}
-        <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+        <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shadow-2xl">
           {/* Left: Test Title (No Date in Title) */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md">
-              <Shield className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg">
+              <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>Full Pattern Mock Assessment</span>
-                <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 text-[10px] font-mono font-bold border border-indigo-500/30">
+                <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 text-[11px] font-mono font-bold border border-indigo-500/30">
                   Attempt {attemptNumber} of 3
                 </span>
               </h2>
-              <p className="text-[11px] text-slate-400">
-                Section: <strong className="text-indigo-400">{activeSectionName}</strong> &bull; Auto-Save: <span className="text-emerald-400">{autoSaveStatus}</span>
+              <p className="text-xs text-slate-400">
+                Section: <strong className="text-indigo-400">{activeSectionName}</strong> &bull; Auto-Save: <span className="text-emerald-400 font-bold">{autoSaveStatus}</span>
               </p>
             </div>
           </div>
 
           {/* Middle: Live Diagnostic Status Badges */}
           <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-            <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 flex items-center gap-1.5 text-slate-200">
+            <div className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 flex items-center gap-1.5 text-slate-200">
               <Camera className="w-3.5 h-3.5 text-emerald-400" />
               <span>Camera: <strong className="text-emerald-400">Active</strong></span>
             </div>
 
-            <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 flex items-center gap-1.5 text-slate-200">
+            <div className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 flex items-center gap-1.5 text-slate-200">
               <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>Face: <strong className="text-emerald-400">{faceDetectionText}</strong></span>
             </div>
 
-            <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 flex items-center gap-1.5 text-slate-200">
+            <div className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 flex items-center gap-1.5 text-slate-200">
               <Monitor className="w-3.5 h-3.5 text-indigo-400" />
               <span>Screen: <strong className={screenShareAllowed ? 'text-emerald-400' : 'text-red-400'}>{screenShareAllowed ? 'Active' : 'Missing'}</strong></span>
             </div>
 
-            <div className={`px-2.5 py-1 rounded-lg flex items-center gap-1.5 border ${
+            <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border ${
               isOnline ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/20 border-red-500/40 text-red-400 animate-pulse'
             }`}>
               {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
@@ -612,7 +946,7 @@ export const SecureExamMode = () => {
             </div>
 
             {warningCount > 0 && (
-              <div className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 font-bold flex items-center gap-1">
+              <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 font-bold flex items-center gap-1">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>Warnings: {warningCount}</span>
               </div>
@@ -621,26 +955,26 @@ export const SecureExamMode = () => {
 
           {/* Right: Timer & Webcam PiP & Finish Button */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-800 font-mono font-bold text-base text-indigo-400 shadow-inner">
+            <div className="flex items-center gap-2 bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 font-mono font-bold text-base text-indigo-400 shadow-inner">
               <Clock className="w-4 h-4 text-indigo-400 animate-pulse" />
               <span>{formatTimer(timeLeft)}</span>
             </div>
 
             {/* Camera PiP Video Box */}
-            <div className="w-16 h-12 rounded-xl overflow-hidden border border-emerald-500/60 relative bg-black shrink-0 shadow-lg">
+            <div className="w-20 h-14 rounded-xl overflow-hidden border-2 border-emerald-500/60 relative bg-black shrink-0 shadow-lg">
               <video ref={pipVideoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
-              <div className="absolute top-0.5 left-0.5 flex items-center gap-1 bg-black/80 px-1 rounded-sm text-[7px] text-emerald-400 font-bold">
-                <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping" />
+              <div className="absolute top-1 left-1 flex items-center gap-1 bg-black/80 px-1.5 py-0.5 rounded-md text-[8px] text-emerald-400 font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                 LIVE
               </div>
             </div>
 
             <Button
               variant="primary"
-              size="sm"
+              size="md"
               onClick={handleFinalSubmit}
               disabled={isSubmitting}
-              className="bg-emerald-600 hover:bg-emerald-500 font-bold border-0 shadow-lg"
+              className="bg-emerald-600 hover:bg-emerald-500 font-bold border-0 shadow-lg px-5 py-2.5"
             >
               {isSubmitting ? 'Submitting...' : 'Finish Test'}
             </Button>
@@ -648,7 +982,7 @@ export const SecureExamMode = () => {
         </header>
 
         {/* Section Navigation Tabs */}
-        <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center gap-2 overflow-x-auto">
+        <div className="bg-slate-900 border-b border-slate-800 px-6 py-2.5 flex items-center gap-2 overflow-x-auto">
           {SECTIONS_CONFIG.map((sec) => (
             <button
               key={sec.name}
@@ -656,14 +990,14 @@ export const SecureExamMode = () => {
                 setActiveSectionName(sec.name);
                 setCurrentQIndex(0);
               }}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
                 activeSectionName === sec.name
-                  ? 'bg-indigo-600 text-white shadow-md'
+                  ? 'bg-indigo-600 text-white shadow-lg'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
               <span>{sec.name}</span>
-              <span className="px-1.5 py-0.5 rounded-md bg-black/30 text-[10px] font-mono">
+              <span className="px-2 py-0.5 rounded-md bg-black/40 text-[11px] font-mono">
                 {sec.questions} Qs
               </span>
             </button>
@@ -679,12 +1013,12 @@ export const SecureExamMode = () => {
               <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
                   <div className="flex items-center gap-2">
-                    {(questionsBank.Coding || []).map((prob, pIdx) => (
+                    {(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding).map((prob, pIdx) => (
                       <button
                         key={prob.id || pIdx}
                         onClick={() => setCodingActiveIndex(pIdx)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
-                          codingActiveIndex === pIdx ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                          codingActiveIndex === pIdx ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                         }`}
                       >
                         Problem {pIdx + 1} ({prob.title ? prob.title.slice(0, 16) : 'Challenge'}...)
@@ -698,7 +1032,7 @@ export const SecureExamMode = () => {
                       onChange={(e) => {
                         const newLang = e.target.value;
                         setCodingLanguage(newLang);
-                        const curProb = questionsBank.Coding[codingActiveIndex];
+                        const curProb = (questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)[codingActiveIndex];
                         if (curProb) {
                           setCodingDrafts({
                             ...codingDrafts,
@@ -706,7 +1040,7 @@ export const SecureExamMode = () => {
                           });
                         }
                       }}
-                      className="bg-slate-950 border border-slate-700 text-xs rounded-xl px-3 py-1.5 text-white font-mono"
+                      className="bg-slate-950 border border-slate-700 text-xs rounded-xl px-3 py-1.5 text-white font-mono outline-none"
                     >
                       <option value="java">Java (OpenJDK 21)</option>
                       <option value="python">Python 3.12</option>
@@ -720,30 +1054,35 @@ export const SecureExamMode = () => {
                   </div>
                 </div>
 
-                {questionsBank.Coding?.[codingActiveIndex] && (
+                {(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)?.[codingActiveIndex] && (
                   <div className="text-xs text-slate-300 bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-white text-sm">{questionsBank.Coding[codingActiveIndex].title}</h3>
-                      <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-mono text-[10px]">
-                        {questionsBank.Coding[codingActiveIndex].difficulty} &bull; 1 Mark
+                      <h3 className="font-bold text-white text-sm">{(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)[codingActiveIndex].title}</h3>
+                      <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-mono text-[11px] font-bold">
+                        {(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)[codingActiveIndex].difficulty} &bull; 1 Mark
                       </span>
                     </div>
-                    <p>{questionsBank.Coding[codingActiveIndex].description}</p>
+                    <p>{(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)[codingActiveIndex].description}</p>
                   </div>
                 )}
 
                 {/* Editor */}
-                <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-950">
+                <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-950 shadow-inner">
                   <div className="bg-slate-900 px-4 py-2 text-xs font-mono text-slate-400 flex items-center justify-between border-b border-slate-800">
-                    <span>Solution.{codingLanguage === 'java' ? 'java' : codingLanguage === 'python' ? 'py' : 'cpp'}</span>
+                    <span>Solution.{codingLanguage === 'java' ? 'java' : codingLanguage === 'python' ? 'py' : codingLanguage === 'cpp' ? 'cpp' : 'js'}</span>
                     <span>UTF-8 &bull; Strict Proctoring</span>
                   </div>
                   <textarea
                     rows={12}
-                    value={questionsBank.Coding?.[codingActiveIndex] ? (codingDrafts[questionsBank.Coding[codingActiveIndex].id] || '') : ''}
+                    value={
+                      (questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)?.[codingActiveIndex]
+                        ? codingDrafts[(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)[codingActiveIndex].id] || ''
+                        : ''
+                    }
                     onChange={(e) => {
-                      if (questionsBank.Coding?.[codingActiveIndex]) {
-                        setCodingDrafts({ ...codingDrafts, [questionsBank.Coding[codingActiveIndex].id]: e.target.value });
+                      const curProb = (questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)?.[codingActiveIndex];
+                      if (curProb) {
+                        setCodingDrafts({ ...codingDrafts, [curProb.id]: e.target.value });
                       }
                     }}
                     className="w-full bg-slate-950 text-emerald-400 font-mono text-xs p-4 outline-none resize-none leading-relaxed"
@@ -766,28 +1105,28 @@ export const SecureExamMode = () => {
                     {activeSectionName} Section &bull; Question {currentQIndex + 1} of {currentSectionQuestions.length || 10}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-slate-400">+1.00 Mark</span>
+                    <span className="text-xs font-mono text-slate-300 font-bold">+1.00 Mark</span>
                     <span className="text-xs font-mono text-slate-500">0.00 Negative</span>
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-[11px] font-mono text-indigo-300 border border-slate-700">
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-[11px] font-mono text-indigo-300 border border-slate-700 font-bold">
                       Topic: {currentQuestion.topic || currentQuestion.title || `${activeSectionName} Topic`}
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-slate-800 text-[10px] font-mono text-slate-400">
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-[10px] font-mono text-slate-400 capitalize">
                       {currentQuestion.difficulty || "medium"}
                     </span>
                   </div>
 
-                  <h3 className="text-base font-bold text-white leading-relaxed">
+                  <h3 className="text-base sm:text-lg font-bold text-white leading-relaxed">
                     {currentQuestion.question || currentQuestion.description}
                   </h3>
 
                   {currentQuestion.codeSnippet && (
                     <div className="p-4 rounded-2xl bg-slate-950 font-mono text-xs text-indigo-300 border border-slate-800">
-                      <code>{currentQuestion.codeSnippet}</code>
+                      <pre className="whitespace-pre-wrap font-mono">{currentQuestion.codeSnippet}</pre>
                     </div>
                   )}
                 </div>
@@ -802,21 +1141,21 @@ export const SecureExamMode = () => {
                         key={optIdx}
                         type="button"
                         onClick={() => setAnswers({ ...answers, [`${activeSectionName}_${currentQIndex}`]: optIdx })}
-                        className={`w-full p-4 rounded-2xl text-left text-xs font-semibold border transition flex items-center justify-between ${
+                        className={`w-full p-4 rounded-2xl text-left text-xs sm:text-sm font-medium border transition-all flex items-center justify-between cursor-pointer ${
                           isSelected
-                            ? 'bg-indigo-600/20 border-indigo-500 text-white ring-2 ring-indigo-500/40'
-                            : 'bg-slate-950/60 hover:bg-slate-800 border-slate-800 text-slate-300'
+                            ? 'bg-indigo-600/30 border-indigo-500 text-white ring-2 ring-indigo-500/50 shadow-lg'
+                            : 'bg-slate-950 hover:bg-slate-800/80 border-slate-800 text-slate-200 hover:border-slate-700'
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs ${
-                            isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                          <span className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 transition ${
+                            isSelected ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-800 text-slate-300 border border-slate-700'
                           }`}>
                             {String.fromCharCode(65 + optIdx)}
                           </span>
                           <span>{actualText}</span>
                         </div>
-                        {isSelected && <Check className="w-4 h-4 text-indigo-400" />}
+                        {isSelected && <Check className="w-5 h-5 text-indigo-400 shrink-0" />}
                       </button>
                     );
                   })}
@@ -830,7 +1169,7 @@ export const SecureExamMode = () => {
                       ...markedForReview,
                       [`${activeSectionName}_${currentQIndex}`]: !markedForReview[`${activeSectionName}_${currentQIndex}`],
                     })}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${
+                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
                       markedForReview[`${activeSectionName}_${currentQIndex}`]
                         ? 'bg-purple-500/20 border-purple-500 text-purple-300'
                         : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
@@ -863,7 +1202,7 @@ export const SecureExamMode = () => {
                           }
                         }
                       }}
-                      className="bg-indigo-600 hover:bg-indigo-500"
+                      className="bg-indigo-600 hover:bg-indigo-500 font-bold"
                     >
                       Save &amp; Next
                     </Button>
@@ -891,7 +1230,7 @@ export const SecureExamMode = () => {
                     <button
                       key={idx}
                       onClick={() => setCurrentQIndex(idx)}
-                      className={`h-9 rounded-xl font-mono text-xs font-bold transition flex items-center justify-center ${
+                      className={`h-9 rounded-xl font-mono text-xs font-bold transition flex items-center justify-center cursor-pointer ${
                         isCurrent
                           ? 'ring-2 ring-indigo-400 bg-indigo-600 text-white'
                           : isAns
@@ -1075,7 +1414,7 @@ export const SecureExamMode = () => {
             <div className="flex items-center gap-6">
               <button
                 onClick={() => setViewTab('overview')}
-                className={`text-sm font-bold pb-2 transition relative ${
+                className={`text-sm font-bold pb-2 transition relative cursor-pointer ${
                   viewTab === 'overview'
                     ? 'text-indigo-400 border-b-2 border-indigo-500'
                     : 'text-slate-400 hover:text-white'
@@ -1085,7 +1424,7 @@ export const SecureExamMode = () => {
               </button>
               <button
                 onClick={() => setViewTab('attempt')}
-                className={`text-sm font-bold pb-2 transition relative ${
+                className={`text-sm font-bold pb-2 transition relative cursor-pointer ${
                   viewTab === 'attempt'
                     ? 'text-indigo-400 border-b-2 border-indigo-500'
                     : 'text-slate-400 hover:text-white'
@@ -1095,7 +1434,7 @@ export const SecureExamMode = () => {
               </button>
               <button
                 onClick={() => setViewTab('history')}
-                className={`text-sm font-bold pb-2 transition relative ${
+                className={`text-sm font-bold pb-2 transition relative cursor-pointer ${
                   viewTab === 'history'
                     ? 'text-indigo-400 border-b-2 border-indigo-500'
                     : 'text-slate-400 hover:text-white'
@@ -1105,7 +1444,7 @@ export const SecureExamMode = () => {
               </button>
               <button
                 onClick={() => setViewTab('faculty')}
-                className={`text-sm font-bold pb-2 transition relative ${
+                className={`text-sm font-bold pb-2 transition relative cursor-pointer ${
                   viewTab === 'faculty'
                     ? 'text-indigo-400 border-b-2 border-indigo-500'
                     : 'text-slate-400 hover:text-white'
