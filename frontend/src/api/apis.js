@@ -74,6 +74,8 @@ export const assessmentApi = {
   getAll: (params) => api.get('/assessments', { params }),
   getById: (id) => api.get(`/assessments/${id}`),
   generateAI: (data) => api.post('/assessments/generate-ai', data),
+  generateMockExam: (id, data) => api.post(`/assessments/${id}/generate`, data),
+  getResult: (attemptId) => api.get(`/assessments/attempts/${attemptId}/result`),
   submit: (id, data) => api.post(`/assessments/${id}/submit`, data),
   getMySubmissions: () => api.get('/assessments/my/submissions'),
 };
