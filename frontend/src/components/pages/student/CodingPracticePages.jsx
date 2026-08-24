@@ -211,10 +211,11 @@ export const CodingCompilerPage = () => {
 
     const startTime = Date.now();
     try {
+      const stdinToSend = customStdin ? customStdin.trim() : '';
       const res = await codeApi.run({
         language,
         code,
-        stdin: inputMode === 'text' ? customStdin : '',
+        stdin: stdinToSend,
       });
 
       const data = res.data;
@@ -656,7 +657,7 @@ export const CodingCompilerPage = () => {
               </div>
 
               {/* Standard Input Selector */}
-              <div className="flex items-center gap-4 text-[11px]">
+              <div className="flex items-center gap-3 text-[11px]">
                 <div className="flex items-center gap-2">
                   <span className="text-slate-300 font-bold">Standard Input:</span>
                   <label className="flex items-center gap-1 cursor-pointer">
@@ -680,6 +681,20 @@ export const CodingCompilerPage = () => {
                     <span>Text (stdin)</span>
                   </label>
                 </div>
+
+                {selectedProblem?.examples?.[0]?.input && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomStdin(selectedProblem.examples[0].input);
+                      setInputMode('text');
+                    }}
+                    className="px-2 py-0.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 rounded text-[10px] cursor-pointer"
+                    title="Insert sample input for this problem"
+                  >
+                    + Sample Input
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -708,15 +723,46 @@ export const CodingCompilerPage = () => {
             {/* Text Stdin Panel (if Text mode is active) */}
             {!isConsoleCollapsed && inputMode === 'text' && (
               <div className="bg-[#1f1f1f] border-b border-[#2d3238] px-3 py-2 space-y-1">
-                <span className="text-[10px] text-indigo-400 font-bold uppercase">Standard Input (stdin) Payload:</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-indigo-400 font-bold uppercase">Standard Input (stdin) Payload:</span>
+                  <span className="text-[10px] text-slate-500 font-mono">Lines sent to program stdin</span>
+                </div>
                 <textarea
                   rows={2}
                   value={customStdin}
                   onChange={(e) => setCustomStdin(e.target.value)}
                   placeholder="Enter inputs here (e.g. 5\n10 20 30 40 50)..."
-                  className="w-full bg-[#181818] border border-[#333333] rounded p-2 text-xs font-mono text-white outline-none resize-none"
+                  className="w-full bg-[#181818] border border-[#333333] rounded p-2 text-xs font-mono text-white outline-none resize-none focus:border-indigo-500"
                 />
               </div>
+            )}
+
+            {/* Interactive Console Prompt Bar (if Interactive mode is active) */}
+            {!isConsoleCollapsed && inputMode === 'interactive' && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (customStdin) {
+                    handleRunCode();
+                  }
+                }}
+                className="bg-[#1b1e22] border-b border-[#2d3238] px-3 py-1.5 flex items-center gap-2 text-xs text-slate-300"
+              >
+                <span className="text-emerald-400 font-bold font-mono">stdin &gt;</span>
+                <input
+                  type="text"
+                  value={customStdin}
+                  onChange={(e) => setCustomStdin(e.target.value)}
+                  placeholder="Type standard input here and press Enter or Run (e.g. 2 7 11 15 9)..."
+                  className="flex-1 bg-[#121417] border border-[#333333] rounded px-2.5 py-1 text-white font-mono outline-none focus:border-emerald-500 text-xs"
+                />
+                <button
+                  type="submit"
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-bold cursor-pointer"
+                >
+                  Send &amp; Run
+                </button>
+              </form>
             )}
 
             {/* Terminal Window Output Logs */}
