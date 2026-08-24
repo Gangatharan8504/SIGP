@@ -85,6 +85,10 @@ export const codeApi = {
   getPracticeProblems: (params) => api.get('/code/problems', { params }),
   getProblemById: (id) => api.get(`/code/problems/${id}`),
   submitSolution: (id, data) => api.post(`/code/problems/${id}/submit`, data),
+  saveCode: (data) => api.post('/code/save', data),
+  getSavedCode: (problemId, params) => api.get(`/code/saved/${problemId}`, { params }),
+  getMySubmissions: (params) => api.get('/code/submissions/my', { params }),
+  aiAssist: (data) => api.post('/code/ai/assist', data),
 };
 
 export const learningApi = {
