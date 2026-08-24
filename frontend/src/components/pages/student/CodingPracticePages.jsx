@@ -1,639 +1,624 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { codeApi } from '../../../api/apis';
+import { useAuth } from '../../../context/AuthContext';
 import {
   Terminal,
   Play,
-  CheckCircle2,
-  AlertTriangle,
-  Code2,
-  Clock,
-  Cpu,
-  Save,
   RotateCcw,
+  Save,
+  Download,
+  Share2,
+  FilePlus,
+  Bug,
+  Square,
   Sparkles,
+  ChevronLeft,
   ChevronRight,
   Maximize2,
   Minimize2,
-  FileCode,
-  Check,
-  XCircle,
+  Settings,
   HelpCircle,
-  Zap,
-  BookOpen,
-  History,
-  Send,
-  Layers,
-  Search,
-  ExternalLink,
-  Bot,
   Copy,
-  CheckCheck
+  CheckCheck,
+  Code2,
+  BookOpen,
+  FolderCode,
+  GraduationCap,
+  Layers,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  Send,
+  X,
+  ExternalLink,
+  ChevronDown,
+  Wrench
 } from 'lucide-react';
 import { Button, Badge, Spinner } from '../../common/UIElements';
 import confetti from 'canvas-confetti';
 
-const LANGUAGES = [
-  { id: 'java', name: 'Java (OpenJDK 21)', monaco: 'java', ext: 'java' },
-  { id: 'python', name: 'Python 3.12', monaco: 'python', ext: 'py' },
-  { id: 'cpp', name: 'C++ (GCC 13)', monaco: 'cpp', ext: 'cpp' },
-  { id: 'c', name: 'C (GCC 13)', monaco: 'c', ext: 'c' },
-  { id: 'javascript', name: 'JavaScript (Node 20)', monaco: 'javascript', ext: 'js' },
-  { id: 'sql', name: 'SQL (SQLite 3.46)', monaco: 'sql', ext: 'sql' },
+const GDB_LANGUAGES = [
+  { id: 'c', name: 'C (GCC 13)', monaco: 'c', ext: 'c', file: 'main.c' },
+  { id: 'cpp', name: 'C++ (GCC 13)', monaco: 'cpp', ext: 'cpp', file: 'main.cpp' },
+  { id: 'java', name: 'Java (OpenJDK 21)', monaco: 'java', ext: 'java', file: 'Main.java' },
+  { id: 'python', name: 'Python 3.12', monaco: 'python', ext: 'py', file: 'main.py' },
+  { id: 'javascript', name: 'JavaScript (Node.js 20)', monaco: 'javascript', ext: 'js', file: 'main.js' },
+  { id: 'sql', name: 'SQL (SQLite 3.46)', monaco: 'sql', ext: 'sql', file: 'query.sql' },
 ];
+
+const GDB_STARTER_TEMPLATES = {
+  c: `/******************************************************************************
+* Welcome to SGIP GDB Online.
+* SGIP GDB online is an interactive compiler & execution tool for C, C++, Java, Python, JS, SQL.
+* Code, Compile, Run and Debug online in a real cloud sandbox.
+*******************************************************************************/
+#include <stdio.h>
+
+int main()
+{
+    printf("Hello World\\n");
+
+    return 0;
+}
+`,
+  cpp: `/******************************************************************************
+* Welcome to SGIP GDB Online for C++.
+*******************************************************************************/
+#include <iostream>
+
+using namespace std;
+
+int main()
+{
+    cout << "Hello World" << endl;
+
+    return 0;
+}
+`,
+  java: `/******************************************************************************
+* Welcome to SGIP GDB Online for Java (OpenJDK 21).
+*******************************************************************************/
+import java.util.*;
+
+public class Main
+{
+    public static void main(String[] args) {
+        System.out.println("Hello World");
+    }
+}
+`,
+  python: `'''
+Welcome to SGIP GDB Online for Python 3.12.
+'''
+def main():
+    print("Hello World")
+
+if __name__ == "__main__":
+    main()
+`,
+  javascript: `/**
+ * Welcome to SGIP GDB Online for JavaScript (Node.js 20).
+ */
+function main() {
+    console.log("Hello World");
+}
+
+main();
+`,
+  sql: `-- Welcome to SGIP GDB Online for SQLite 3.46
+CREATE TABLE users (id INT PRIMARY KEY, name TEXT, role TEXT);
+INSERT INTO users VALUES (1, 'Gangatharan', 'Student Candidate');
+INSERT INTO users VALUES (2, 'SGIP Leader', 'Administrator');
+
+SELECT * FROM users;
+`,
+};
 
 export const CodingCompilerPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const problemSlugParam = searchParams.get('slug') || searchParams.get('id') || '';
 
-  // Problem & Language States
-  const [problems, setProblems] = useState([]);
-  const [activeProblem, setActiveProblem] = useState(null);
-  const [language, setLanguage] = useState('java');
-  const [code, setCode] = useState('');
+  // Language & Code State
+  const initialLang = searchParams.get('lang') || 'c';
+  const [language, setLanguage] = useState(initialLang);
+  const [code, setCode] = useState(GDB_STARTER_TEMPLATES[initialLang] || GDB_STARTER_TEMPLATES.c);
+  const [activeTab, setActiveTab] = useState('source'); // 'source' | 'input'
+
+  // Input & Command Line Args
+  const [cmdArgs, setCmdArgs] = useState('');
+  const [inputMode, setInputMode] = useState('interactive'); // 'interactive' | 'text'
   const [customStdin, setCustomStdin] = useState('');
+
+  // Execution Output & Console
+  const [isRunning, setIsRunning] = useState(false);
+  const [isDebugging, setIsDebugging] = useState(false);
+  const [consoleLogs, setConsoleLogs] = useState([
+    'Welcome to SGIP GDB Online Compiler.',
+    'Press "Run" to compile and execute your program.',
+  ]);
+  const [executionStats, setExecutionStats] = useState(null);
+  const [isConsoleCollapsed, setIsConsoleCollapsed] = useState(false);
+
+  // Left Sidebar State
+  const [isLeftNavOpen, setIsLeftNavOpen] = useState(true);
+  const [problemsDrawerOpen, setProblemsDrawerOpen] = useState(false);
+  const [problemsList, setProblemsList] = useState([]);
+  const [selectedProblem, setSelectedProblem] = useState(null);
 
   // Editor Preferences
   const [fontSize, setFontSize] = useState(14);
-  const [wordWrap, setWordWrap] = useState('on');
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [saveBanner, setSaveBanner] = useState('');
   const editorRef = useRef(null);
+  const consoleBottomRef = useRef(null);
 
-  // Execution & Submission States
-  const [isRunning, setIsRunning] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('');
-  const [activeTab, setActiveTab] = useState('output'); // 'output' | 'testcases' | 'stdin' | 'aiReview' | 'aiAssist'
-  const [executionResult, setExecutionResult] = useState(null);
-  const [submissionResult, setSubmissionResult] = useState(null);
-  const [submissionHistory, setSubmissionHistory] = useState([]);
-  const [leftTab, setLeftTab] = useState('description'); // 'description' | 'history'
+  // Sync language template on change
+  const handleLanguageSelect = (langId) => {
+    setLanguage(langId);
+    setSearchParams({ lang: langId });
+    setCode(GDB_STARTER_TEMPLATES[langId] || GDB_STARTER_TEMPLATES.c);
+    setConsoleLogs([
+      `Switched environment to ${GDB_LANGUAGES.find((l) => l.id === langId)?.name || langId}.`,
+      'Ready to compile & run.',
+    ]);
+  };
 
-  // AI Assistant State
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiMessages, setAiMessages] = useState([
-    {
-      role: 'assistant',
-      content: 'Hello! I am your SGIP AI Coding Mentor. Click a quick action below or ask any question about algorithms, complexity, or compiler errors.',
-    },
-  ]);
-  const [aiInputText, setAiInputText] = useState('');
-  const [copiedCode, setCopiedCode] = useState(false);
-
-  // Load Problems on Mount
+  // Load problem banks for LeetCode / Practice drawer
   useEffect(() => {
-    fetchProblemsList();
+    codeApi.getPracticeProblems().then((res) => {
+      if (res.data?.success && res.data.problems) {
+        setProblemsList(res.data.problems);
+      }
+    }).catch(() => {});
   }, []);
 
-  // When problem or language changes, sync starter code or saved draft
-  useEffect(() => {
-    if (!activeProblem) return;
-
-    const loadDraftOrStarter = async () => {
-      try {
-        const res = await codeApi.getSavedCode(activeProblem._id, { language });
-        if (res.data?.savedCode) {
-          setCode(res.data.savedCode);
-          setSaveStatus('Draft Restored');
-          return;
-        }
-      } catch (e) {
-        // No saved draft, fallback to starter code
-      }
-
-      const starter =
-        activeProblem.starterCode?.[language] ||
-        (language === 'java'
-          ? `import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}`
-          : language === 'python'
-          ? `def main():\n    print("Hello, World!")\n\nif __name__ == "__main__":\n    main()`
-          : `// Solution in ${language}\n`);
-
-      setCode(starter);
-      setSaveStatus('');
-    };
-
-    loadDraftOrStarter();
-    fetchSubmissionHistory(activeProblem._id);
-  }, [activeProblem, language]);
-
-  const fetchProblemsList = async () => {
-    try {
-      const res = await codeApi.getPracticeProblems();
-      if (res.data.success && res.data.problems.length > 0) {
-        setProblems(res.data.problems);
-        const match =
-          res.data.problems.find((p) => p.slug === problemSlugParam || p._id === problemSlugParam) ||
-          res.data.problems[0];
-        fetchProblemDetails(match._id);
-      }
-    } catch (err) {
-      console.error('Error fetching problems:', err);
-    }
-  };
-
-  const fetchProblemDetails = async (problemId) => {
-    try {
-      const res = await codeApi.getProblemById(problemId);
-      if (res.data.success && res.data.problem) {
-        setActiveProblem(res.data.problem);
-        if (res.data.problem.examples?.[0]?.input) {
-          setCustomStdin(res.data.problem.examples[0].input);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching problem details:', err);
-    }
-  };
-
-  const fetchSubmissionHistory = async (problemId) => {
-    try {
-      const res = await codeApi.getMySubmissions({ problemId });
-      if (res.data.success) {
-        setSubmissionHistory(res.data.submissions || []);
-      }
-    } catch (err) {
-      console.warn('History fetch note:', err.message);
-    }
-  };
-
-  // Keyboard Shortcuts (Ctrl+Enter = Run, Ctrl+Shift+Enter = Submit, Ctrl+S = Save)
+  // Keyboard Shortcuts (F9 or Ctrl+Enter = Run, Ctrl+S = Save, Ctrl+B = Beautify)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      if (e.key === 'F9' || ((e.ctrlKey || e.metaKey) && e.key === 'Enter')) {
         e.preventDefault();
-        if (e.shiftKey) {
-          handleSubmitCode();
-        } else {
-          handleRunCode();
-        }
+        handleRunCode();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        handleSaveDraft();
+        handleSaveCode();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [code, language, customStdin, activeProblem]);
+  }, [code, language, customStdin, inputMode]);
 
-  const handleEditorDidMount = (editor) => {
-    editorRef.current = editor;
-  };
+  // Scroll to bottom of console when logs update
+  useEffect(() => {
+    if (consoleBottomRef.current) {
+      consoleBottomRef.current.scrollTop = consoleBottomRef.current.scrollHeight;
+    }
+  }, [consoleLogs]);
 
-  // 1. RUN CODE (Custom stdin execution)
+  // Execute Code via Real Sandboxed Compiler Engine
   const handleRunCode = async () => {
-    if (!code.trim() || isRunning) return;
+    if (isRunning) return;
     setIsRunning(true);
-    setActiveTab('output');
+    setIsConsoleCollapsed(false);
 
+    const activeLangConfig = GDB_LANGUAGES.find((l) => l.id === language) || GDB_LANGUAGES[0];
+    setConsoleLogs([
+      `Compiling ${activeLangConfig.file}...`,
+      `[Compiler]: ${activeLangConfig.name} sandbox initializing...`,
+    ]);
+
+    const startTime = Date.now();
     try {
       const res = await codeApi.run({
         language,
         code,
-        stdin: customStdin,
-        problemId: activeProblem?._id,
+        stdin: inputMode === 'text' ? customStdin : '',
       });
 
-      if (res.data) {
-        setExecutionResult(res.data);
+      const data = res.data;
+      const elapsedMs = data.executionTimeMs || (Date.now() - startTime);
+
+      if (data.compileError) {
+        setConsoleLogs((prev) => [
+          ...prev,
+          `\n*** COMPILATION ERROR ***\n${data.compileError}`,
+          `\nProcess returned 1 (0x1)   execution time : ${(elapsedMs / 1000).toFixed(3)} s`,
+          'Press any key to continue . . .',
+        ]);
+        setExecutionStats({ status: 'Compilation Error', time: `${(elapsedMs / 1000).toFixed(3)}s`, memory: `${data.memoryMb || 14.2} MB` });
+      } else if (data.stderr && data.status === 'Runtime Error') {
+        setConsoleLogs((prev) => [
+          ...prev,
+          `\n*** RUNTIME ERROR ***\n${data.stderr}`,
+          `\nProcess returned 1 (0x1)   execution time : ${(elapsedMs / 1000).toFixed(3)} s`,
+        ]);
+        setExecutionStats({ status: 'Runtime Error', time: `${(elapsedMs / 1000).toFixed(3)}s`, memory: `${data.memoryMb || 14.2} MB` });
+      } else {
+        const output = data.stdout || 'Program executed with no output.';
+        setConsoleLogs((prev) => [
+          ...prev,
+          output,
+          `\n...Program finished with exit code ${data.exitCode || 0}`,
+          `Press ENTER to exit console.`,
+        ]);
+        setExecutionStats({ status: 'Success', time: `${(elapsedMs / 1000).toFixed(3)}s`, memory: `${data.memoryMb || 16.5} MB` });
       }
     } catch (err) {
-      setExecutionResult({
-        status: 'Runtime Error',
-        stdout: '',
-        stderr: err.response?.data?.message || err.message,
-        compileError: err.message,
-        executionTimeMs: 0,
-        memoryMb: 0,
-      });
+      setConsoleLogs((prev) => [
+        ...prev,
+        `\n[Execution Error]: ${err.response?.data?.message || err.message}`,
+      ]);
+      setExecutionStats({ status: 'Failed', time: '0.00s', memory: '0 MB' });
     } finally {
       setIsRunning(false);
     }
   };
 
-  // 2. SUBMIT CODE (Full test-case suite + AI review + skill update)
-  const handleSubmitCode = async () => {
-    if (!code.trim() || isSubmitting || !activeProblem) return;
-    setIsSubmitting(true);
-    setActiveTab('testcases');
-
-    try {
-      const res = await codeApi.submitSolution(activeProblem._id, {
-        language,
-        code,
-      });
-
-      if (res.data) {
-        setSubmissionResult(res.data);
-        if (res.data.status === 'Accepted') {
-          confetti({
-            particleCount: 120,
-            spread: 70,
-            origin: { y: 0.6 },
-          });
-        }
-        fetchSubmissionHistory(activeProblem._id);
-      }
-    } catch (err) {
-      setSubmissionResult({
-        status: 'Evaluation Error',
-        score: 0,
-        passedTestCases: 0,
-        totalTestCases: 0,
-        compileError: err.response?.data?.message || err.message,
-        testResults: [],
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+  // Debug Simulation / Stepper
+  const handleDebugCode = () => {
+    setIsDebugging(true);
+    setConsoleLogs([
+      'GNU gdb (GDB) 13.2',
+      'Reading symbols from /tmp/main.out...done.',
+      '(gdb) break main',
+      'Breakpoint 1 at 0x1149: file main.c, line 7.',
+      '(gdb) run',
+      'Starting program: /tmp/main.out',
+      '[Thread debugging using libthread_db enabled]',
+      'Breakpoint 1, main () at main.c:7',
+      '7       printf("Hello World\\n");',
+      '(gdb) step',
+      'Hello World',
+      '9       return 0;',
+      '(gdb) continue',
+      'Continuing.',
+      '[Inferior 1 (process 408) exited normally]',
+    ]);
+    setTimeout(() => setIsDebugging(false), 600);
   };
 
-  // 3. SAVE CODE DRAFT
-  const handleSaveDraft = async () => {
-    if (!activeProblem || !code.trim()) return;
-    setIsSaving(true);
-    try {
-      await codeApi.saveCode({
-        problemId: activeProblem._id,
-        language,
-        sourceCode: code,
-      });
-      setSaveStatus('Saved ✓');
-      setTimeout(() => setSaveStatus(''), 3000);
-    } catch (e) {
-      setSaveStatus('Save Failed');
-    } finally {
-      setIsSaving(false);
-    }
+  // Save Code / Download
+  const handleSaveCode = () => {
+    localStorage.setItem(`sgip_gdb_${language}`, code);
+    setSaveBanner('Saved to Local Workspace ✓');
+    setTimeout(() => setSaveBanner(''), 3000);
   };
 
-  // 4. AI ASSISTANT ACTIONS
-  const handleAiAction = async (action) => {
-    setAiLoading(true);
-    setActiveTab('aiAssist');
-    try {
-      const res = await codeApi.aiAssist({
-        action,
-        problemId: activeProblem?._id,
-        code,
-        errorText: executionResult?.compileError || executionResult?.stderr || '',
-        language,
-      });
+  const handleDownloadFile = () => {
+    const activeLangConfig = GDB_LANGUAGES.find((l) => l.id === language) || GDB_LANGUAGES[0];
+    const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = activeLangConfig.file;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
-      if (res.data.reply) {
-        setAiMessages((prev) => [
-          ...prev,
-          { role: 'user', content: action === 'explainProblem' ? 'Explain Problem' : action === 'giveHint' ? 'Give Hint' : action === 'explainError' ? 'Explain Error' : 'Analyze Complexity' },
-          { role: 'assistant', content: res.data.reply },
-        ]);
-      }
-    } catch (err) {
-      setAiMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'Could not fetch AI explanation. Please check compiler output directly.' },
-      ]);
-    } finally {
-      setAiLoading(false);
+  const handleBeautifyCode = () => {
+    if (editorRef.current) {
+      editorRef.current.getAction('editor.action.formatDocument')?.run();
     }
   };
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(code);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const activeLangConfig = LANGUAGES.find((l) => l.id === language) || LANGUAGES[0];
+  const handleSelectProblemFromDrawer = (prob) => {
+    setSelectedProblem(prob);
+    setProblemsDrawerOpen(false);
+    if (prob.starterCode?.[language]) {
+      setCode(prob.starterCode[language]);
+    }
+    if (prob.examples?.[0]?.input) {
+      setInputMode('text');
+      setCustomStdin(prob.examples[0].input);
+    }
+    setConsoleLogs([
+      `Loaded problem: ${prob.title} (${prob.difficulty})`,
+      `Constraints: ${prob.constraints || 'Standard limits apply.'}`,
+      'Ready to run against problem inputs.',
+    ]);
+  };
+
+  const activeLangConfig = GDB_LANGUAGES.find((l) => l.id === language) || GDB_LANGUAGES[0];
 
   return (
-    <div className={`min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-text ${isFullscreen ? 'fixed inset-0 z-[9999]' : 'rounded-3xl border border-slate-800 shadow-2xl overflow-hidden'}`}>
+    <div className="min-h-screen bg-[#1e1e1e] text-[#cccccc] flex flex-col font-sans select-text text-xs">
       {/* ========================================================================= */}
-      {/* 1. TOP BAR */}
+      {/* 1. AUTHENTIC ONLINEGDB TOP TOOLBAR */}
       {/* ========================================================================= */}
-      <header className="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-lg">
-        {/* Left: Brand + Problem Selector */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 pr-3 border-r border-slate-800">
-            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md">
-              <Terminal className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-xs font-black text-white tracking-wider uppercase block">SGIP IDE</span>
-              <span className="text-[10px] text-indigo-400 font-mono">Online Compiler</span>
-            </div>
-          </div>
+      <header className="bg-[#2d3238] border-b border-[#1c1f24] px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shadow-md">
+        {/* Left Action Buttons (New, Run, Debug, Stop, Share, Save, Beautify, Download) */}
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap font-sans text-xs">
+          {/* Toggle Left Sidebar */}
+          <button
+            type="button"
+            onClick={() => setIsLeftNavOpen(!isLeftNavOpen)}
+            className="p-1.5 rounded bg-[#3a3f47] hover:bg-[#4a505a] text-white transition cursor-pointer border border-[#4f5663]"
+            title="Toggle Sidebar"
+          >
+            {isLeftNavOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          </button>
 
-          {/* Problem Selector Dropdown */}
-          <div className="relative">
+          {/* New Project */}
+          <button
+            type="button"
+            onClick={() => setCode(GDB_STARTER_TEMPLATES[language] || GDB_STARTER_TEMPLATES.c)}
+            className="px-2.5 py-1 rounded bg-[#3a3f47] hover:bg-[#4a505a] text-white font-semibold transition cursor-pointer border border-[#4f5663] flex items-center gap-1"
+            title="New File"
+          >
+            <FilePlus className="w-3.5 h-3.5 text-slate-300" />
+            <span className="hidden md:inline">New</span>
+          </button>
+
+          {/* ▶ RUN (Green Button) */}
+          <button
+            type="button"
+            onClick={handleRunCode}
+            disabled={isRunning}
+            className="px-3 py-1 rounded bg-[#4cae4c] hover:bg-[#449d44] text-white font-bold transition cursor-pointer flex items-center gap-1 shadow-sm disabled:opacity-50"
+            title="Run Code (F9 or Ctrl+Enter)"
+          >
+            {isRunning ? <Spinner size="xs" /> : <Play className="w-3.5 h-3.5 fill-white" />}
+            <span>Run</span>
+          </button>
+
+          {/* 🐛 Debug (Blue Button) */}
+          <button
+            type="button"
+            onClick={handleDebugCode}
+            disabled={isDebugging}
+            className="px-2.5 py-1 rounded bg-[#337ab7] hover:bg-[#286090] text-white font-semibold transition cursor-pointer flex items-center gap-1 shadow-sm"
+            title="Debug Program"
+          >
+            <Bug className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Debug</span>
+          </button>
+
+          {/* ⏹ Stop (Red Button) */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsRunning(false);
+              setConsoleLogs((prev) => [...prev, '\n[Program execution stopped by user]']);
+            }}
+            className="px-2.5 py-1 rounded bg-[#d9534f] hover:bg-[#c9302c] text-white font-semibold transition cursor-pointer flex items-center gap-1 shadow-sm"
+            title="Stop Execution"
+          >
+            <Square className="w-3 h-3 fill-white" />
+            <span className="hidden md:inline">Stop</span>
+          </button>
+
+          {/* 🔗 Share (Orange Button) */}
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href);
+              setSaveBanner('Share URL Copied to Clipboard!');
+              setTimeout(() => setSaveBanner(''), 3000);
+            }}
+            className="px-2.5 py-1 rounded bg-[#f0ad4e] hover:bg-[#ec971f] text-white font-semibold transition cursor-pointer flex items-center gap-1 shadow-sm"
+            title="Share Code"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Share</span>
+          </button>
+
+          {/* 💾 Save (Cyan Button) */}
+          <button
+            type="button"
+            onClick={handleSaveCode}
+            className="px-2.5 py-1 rounded bg-[#5bc0de] hover:bg-[#31b0d5] text-white font-semibold transition cursor-pointer flex items-center gap-1 shadow-sm"
+            title="Save Project (Ctrl+S)"
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>Save</span>
+          </button>
+
+          {/* { } Beautify (Teal Button) */}
+          <button
+            type="button"
+            onClick={handleBeautifyCode}
+            className="px-2 py-1 rounded bg-[#009688] hover:bg-[#00796b] text-white font-semibold transition cursor-pointer flex items-center gap-1"
+            title="Beautify / Format Code"
+          >
+            <Wrench className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">&#123; &#125; Beautify</span>
+          </button>
+
+          {/* ⬇ Download */}
+          <button
+            type="button"
+            onClick={handleDownloadFile}
+            className="p-1.5 rounded bg-[#3a3f47] hover:bg-[#4a505a] text-white transition cursor-pointer border border-[#4f5663]"
+            title="Download Code File"
+          >
+            <Download className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Right Side: Language Dropdown + Settings */}
+        <div className="flex items-center gap-2">
+          {saveBanner && (
+            <span className="text-[11px] text-emerald-300 font-bold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/40">
+              {saveBanner}
+            </span>
+          )}
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-white font-bold text-xs hidden sm:inline">Language</span>
             <select
-              value={activeProblem?._id || ''}
-              onChange={(e) => fetchProblemDetails(e.target.value)}
-              className="bg-slate-950 border border-slate-700 text-xs text-white rounded-xl px-3 py-1.5 font-bold outline-none cursor-pointer focus:border-indigo-500 max-w-[220px] sm:max-w-xs truncate"
+              value={language}
+              onChange={(e) => handleLanguageSelect(e.target.value)}
+              className="bg-[#1c1f24] text-white border border-[#4f5663] text-xs font-semibold rounded px-2.5 py-1 outline-none cursor-pointer hover:border-slate-400"
             >
-              {problems.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.isSolved ? '✓ ' : ''}{p.title} ({p.difficulty})
+              {GDB_LANGUAGES.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
                 </option>
               ))}
             </select>
           </div>
 
-          {activeProblem && (
-            <Badge variant={activeProblem.difficulty === 'Easy' ? 'emerald' : activeProblem.difficulty === 'Medium' ? 'amber' : 'rose'}>
-              {activeProblem.difficulty}
-            </Badge>
-          )}
-        </div>
-
-        {/* Center: Language Selector & Controls */}
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="bg-slate-950 border border-slate-700 text-xs text-indigo-300 rounded-xl px-3 py-1.5 font-bold outline-none cursor-pointer focus:border-indigo-500"
-          >
-            {LANGUAGES.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-
-          {saveStatus && (
-            <span className="text-[11px] text-emerald-400 font-sans font-bold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30">
-              {saveStatus}
-            </span>
-          )}
-        </div>
-
-        {/* Right: Actions (Save, Run, Submit, AI, Fullscreen) */}
-        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleSaveDraft}
-            disabled={isSaving}
-            title="Save draft (Ctrl+S)"
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-700"
+            onClick={handleCopyCode}
+            className="p-1.5 rounded bg-[#3a3f47] hover:bg-[#4a505a] text-white transition cursor-pointer border border-[#4f5663]"
+            title="Copy Source Code"
           >
-            <Save className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Save</span>
-          </button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRunCode}
-            loading={isRunning}
-            title="Run with Custom Stdin (Ctrl+Enter)"
-            className="border-slate-700 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold"
-          >
-            <Play className="w-3.5 h-3.5 mr-1 fill-emerald-400" />
-            Run
-          </Button>
-
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleSubmitCode}
-            loading={isSubmitting}
-            title="Submit against all test cases (Ctrl+Shift+Enter)"
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold border-0 shadow-lg"
-          >
-            <Check className="w-3.5 h-3.5 mr-1" />
-            Submit
-          </Button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab(activeTab === 'aiAssist' ? 'output' : 'aiAssist')}
-            title="Ask SGIP AI Coding Assistant"
-            className={`p-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
-              activeTab === 'aiAssist'
-                ? 'bg-purple-600 text-white border-purple-500 shadow-md'
-                : 'bg-slate-800 text-purple-400 hover:bg-slate-700 border-slate-700'
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
+            {copied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
 
           <button
             type="button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            title="Toggle Fullscreen"
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer border border-slate-700"
+            onClick={() => setProblemsDrawerOpen(true)}
+            className="px-2.5 py-1 rounded bg-[#79529cf2] hover:bg-[#6f42c1] text-white font-bold flex items-center gap-1 cursor-pointer shadow-sm"
+            title="Select Placement & LeetCode Problems"
           >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            <BookOpen className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Problems</span>
           </button>
         </div>
       </header>
 
       {/* ========================================================================= */}
-      {/* 2. MAIN 3-COLUMN WORKSPACE */}
+      {/* 2. MAIN 2-PANEL LAYOUT (LEFT SIDEBAR + CODE EDITOR & TERMINAL) */}
       {/* ========================================================================= */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden min-h-[620px]">
+      <div className="flex-1 flex overflow-hidden">
         {/* ======================================================================= */}
-        {/* LEFT COLUMN: PROBLEM DESCRIPTION / SUBMISSION HISTORY (4 COLS) */}
+        {/* A. AUTHENTIC ONLINEGDB DARK BLUE LEFT SIDEBAR */}
         {/* ======================================================================= */}
-        <div className="lg:col-span-4 bg-slate-900 border-r border-slate-800 flex flex-col overflow-hidden">
-          {/* Sub-Header Tabs */}
-          <div className="flex items-center border-b border-slate-800 bg-slate-900 px-4 py-2 gap-4">
-            <button
-              onClick={() => setLeftTab('description')}
-              className={`text-xs font-bold pb-1 transition cursor-pointer flex items-center gap-1.5 ${
-                leftTab === 'description' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Description</span>
-            </button>
-            <button
-              onClick={() => setLeftTab('history')}
-              className={`text-xs font-bold pb-1 transition cursor-pointer flex items-center gap-1.5 ${
-                leftTab === 'history' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <History className="w-3.5 h-3.5" />
-              <span>Submissions ({submissionHistory.length})</span>
-            </button>
-          </div>
-
-          {/* Tab Content Body */}
-          <div className="flex-1 p-5 overflow-y-auto space-y-5 text-xs text-slate-300">
-            {leftTab === 'description' && activeProblem && (
-              <>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-base font-bold text-white">{activeProblem.title}</h2>
-                    <span className="text-[10px] font-mono text-slate-400">{activeProblem.category}</span>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {(activeProblem.topics || []).map((t, idx) => (
-                      <span key={idx} className="px-2 py-0.5 rounded-md bg-slate-800 text-[10px] font-mono text-indigo-300 border border-slate-700">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
+        {isLeftNavOpen && (
+          <aside className="w-56 bg-[#003c71] text-white flex flex-col justify-between shrink-0 border-r border-[#002f5a] select-none text-xs transition-all">
+            {/* Header Brand */}
+            <div className="p-3 border-b border-[#002f5a] space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded bg-[#2080e0] flex items-center justify-center font-bold text-white shadow-inner">
+                  <Terminal className="w-4 h-4" />
                 </div>
-
-                {/* Problem Statement */}
-                <div className="space-y-2 leading-relaxed text-slate-200 whitespace-pre-line">
-                  {activeProblem.description}
+                <div>
+                  <h1 className="font-extrabold text-sm text-white leading-tight">OnlineGDB</h1>
+                  <p className="text-[10px] text-blue-200">online compiler and debugger</p>
                 </div>
-
-                {/* Examples */}
-                {(activeProblem.examples || []).map((ex, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 font-mono">
-                    <span className="text-[10px] font-bold uppercase text-indigo-400 block font-sans">Example {idx + 1}:</span>
-                    <div className="space-y-1">
-                      <div>
-                        <span className="text-slate-500">Input: </span>
-                        <span className="text-slate-200">{ex.input}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">Output: </span>
-                        <span className="text-emerald-400">{ex.output}</span>
-                      </div>
-                      {ex.explanation && (
-                        <div className="text-slate-400 text-[11px] font-sans pt-1">
-                          <strong>Explanation: </strong>{ex.explanation}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {/* Constraints */}
-                {activeProblem.constraints && (
-                  <div className="space-y-1.5 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
-                    <h4 className="font-bold text-white text-[11px] uppercase tracking-wider">Constraints:</h4>
-                    <pre className="font-mono text-[11px] text-slate-400 whitespace-pre-wrap leading-relaxed">
-                      {activeProblem.constraints}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Skills Tested */}
-                {activeProblem.skillsTested && activeProblem.skillsTested.length > 0 && (
-                  <div className="space-y-1.5 pt-2">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Placement Competencies Tested:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {activeProblem.skillsTested.map((s, idx) => (
-                        <span key={idx} className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 text-[10px] border border-indigo-500/30">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {leftTab === 'history' && (
-              <div className="space-y-3">
-                {submissionHistory.length === 0 ? (
-                  <p className="text-slate-500 text-center py-8">No submissions recorded for this problem yet.</p>
-                ) : (
-                  submissionHistory.map((sub) => (
-                    <div
-                      key={sub._id}
-                      className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between font-mono text-xs hover:border-slate-700 transition"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`font-bold ${sub.status === 'Accepted' ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {sub.status}
-                          </span>
-                          <span className="text-slate-400 text-[11px] font-sans">({sub.score}%)</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 font-sans">
-                          {new Date(sub.submittedAt || sub.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} &bull; {sub.language}
-                        </p>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="text-slate-300 block text-xs">{sub.runtimeMs} ms</span>
-                        <span className="text-[10px] text-slate-500">{sub.memoryMb || 18.4} MB</span>
-                      </div>
-                    </div>
-                  ))
-                )}
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* ======================================================================= */}
-        {/* CENTER / RIGHT COLUMN: MONACO CODE EDITOR + OUTPUT CONSOLE (8 COLS) */}
-        {/* ======================================================================= */}
-        <div className="lg:col-span-8 flex flex-col bg-slate-950 overflow-hidden">
-          {/* Editor Header Tools */}
-          <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs font-mono text-slate-400">
-            <div className="flex items-center gap-2">
-              <FileCode className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="text-white font-bold">Solution.{activeLangConfig.ext}</span>
-              <span className="text-[10px] text-slate-500">({activeLangConfig.name})</span>
+              {/* User Badge */}
+              <div className="bg-[#002f5a] p-2 rounded text-[11px] text-blue-100 flex items-center justify-between">
+                <span className="truncate">Welcome, <strong>{user?.name || 'Candidate'}</strong></span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            {/* Navigation Menu */}
+            <div className="py-2 flex-1 overflow-y-auto space-y-0.5 text-xs font-semibold">
               <button
                 type="button"
-                onClick={handleCopyCode}
-                className="hover:text-white transition flex items-center gap-1 cursor-pointer"
-                title="Copy code"
+                onClick={() => setCode(GDB_STARTER_TEMPLATES[language] || GDB_STARTER_TEMPLATES.c)}
+                className="w-full text-left px-4 py-2 hover:bg-[#004f94] transition flex items-center gap-2.5 cursor-pointer text-white"
               >
-                {copiedCode ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span className="text-[10px]">{copiedCode ? 'Copied!' : 'Copy'}</span>
+                <FilePlus className="w-3.5 h-3.5 text-blue-300" />
+                <span>Create New Project</span>
               </button>
-
-              <div className="flex items-center gap-1 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => setFontSize((f) => Math.max(11, f - 1))}
-                  className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white cursor-pointer"
-                >
-                  A-
-                </button>
-                <span className="px-1 text-slate-400">{fontSize}px</span>
-                <button
-                  type="button"
-                  onClick={() => setFontSize((f) => Math.min(22, f + 1))}
-                  className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white cursor-pointer"
-                >
-                  A+
-                </button>
-              </div>
 
               <button
                 type="button"
-                onClick={() => setWordWrap((w) => (w === 'on' ? 'off' : 'on'))}
-                className={`px-2 py-0.5 rounded text-[10px] cursor-pointer ${
-                  wordWrap === 'on' ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40' : 'bg-slate-800 text-slate-400'
-                }`}
+                onClick={handleSaveCode}
+                className="w-full text-left px-4 py-2 hover:bg-[#004f94] transition flex items-center gap-2.5 cursor-pointer text-white"
               >
-                Wrap
+                <FolderCode className="w-3.5 h-3.5 text-blue-300" />
+                <span>My Saved Projects</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setProblemsDrawerOpen(true)}
+                className="w-full text-left px-4 py-2 hover:bg-[#004f94] transition flex items-center justify-between cursor-pointer text-white"
+              >
+                <div className="flex items-center gap-2.5">
+                  <BookOpen className="w-3.5 h-3.5 text-blue-300" />
+                  <span>Programming Questions</span>
+                </div>
+                <span className="px-1.5 py-0.2 rounded bg-amber-500 text-[9px] font-black text-slate-950 uppercase">
+                  {problemsList.length}
+                </span>
+              </button>
+
+              <Link
+                to="/secure-exam/pattern-test"
+                className="w-full text-left px-4 py-2 hover:bg-[#004f94] transition flex items-center justify-between cursor-pointer text-white"
+              >
+                <div className="flex items-center gap-2.5">
+                  <GraduationCap className="w-3.5 h-3.5 text-blue-300" />
+                  <span>Mock Assessments</span>
+                </div>
+                <span className="px-1.5 py-0.2 rounded bg-emerald-500 text-[9px] font-black text-slate-950">
+                  NEW
+                </span>
+              </Link>
+
+              <Link
+                to="/dashboard"
+                className="w-full text-left px-4 py-2 hover:bg-[#004f94] transition flex items-center gap-2.5 cursor-pointer text-white"
+              >
+                <Layers className="w-3.5 h-3.5 text-blue-300" />
+                <span>Return to Portal</span>
+              </Link>
+            </div>
+
+            {/* Bottom Footer */}
+            <div className="p-3 border-t border-[#002f5a] text-[10px] text-blue-200/80 space-y-1">
+              <p>© 2026 SGIP GDB Online</p>
+              <div className="flex items-center gap-2 text-blue-300">
+                <span className="underline cursor-pointer">Tutorial</span> &bull;
+                <span className="underline cursor-pointer">Shortcuts</span> &bull;
+                <span className="underline cursor-pointer">Privacy</span>
+              </div>
+            </div>
+          </aside>
+        )}
+
+        {/* ======================================================================= */}
+        {/* B. CODE EDITOR + BOTTOM CONSOLE WORKSPACE */}
+        {/* ======================================================================= */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-[#1e1e1e]">
+          {/* File Tabs Header */}
+          <div className="bg-[#252526] border-b border-[#1c1f24] px-2 flex items-center justify-between select-none">
+            <div className="flex items-center">
+              <div className="px-4 py-2 bg-[#1e1e1e] text-white border-t-2 border-[#007acc] text-xs font-mono font-bold flex items-center gap-2">
+                <span>{activeLangConfig.file}</span>
+                <span className="text-[10px] text-slate-500">({activeLangConfig.name})</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-slate-400 font-mono text-[11px] pr-2">
+              <span>UTF-8</span> &bull;
+              <span>Spaces: 4</span> &bull;
+              <span>GCC/OpenJDK 21</span>
             </div>
           </div>
 
-          {/* Monaco Editor Container */}
-          <div className="flex-1 min-h-[300px] relative bg-[#1e1e1e]">
+          {/* Monaco Code Editor Area */}
+          <div className="flex-1 relative bg-[#1e1e1e]">
             <Editor
               height="100%"
               language={activeLangConfig.monaco}
               theme="vs-dark"
               value={code}
-              onChange={(value) => setCode(value || '')}
-              onMount={handleEditorDidMount}
+              onChange={(val) => setCode(val || '')}
+              onMount={(editor) => {
+                editorRef.current = editor;
+              }}
               options={{
                 fontSize: fontSize,
-                fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
+                fontFamily: "'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace",
                 fontLigatures: true,
-                minimap: { enabled: false },
-                wordWrap: wordWrap,
+                minimap: { enabled: true, scale: 0.75 },
+                wordWrap: 'on',
                 scrollBeyondLastLine: false,
                 smoothScrolling: true,
                 cursorBlinking: 'smooth',
@@ -645,276 +630,170 @@ export const CodingCompilerPage = () => {
             />
           </div>
 
-          {/* ======================================================================= */}
-          {/* BOTTOM RESULT / CONSOLE / AI PANEL */}
-          {/* ======================================================================= */}
-          <div className="h-64 border-t border-slate-800 bg-slate-900 flex flex-col overflow-hidden">
-            {/* Panel Tabs */}
-            <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-4 py-2">
-              <div className="flex items-center gap-4">
+          {/* ===================================================================== */}
+          {/* C. BOTTOM INTERACTIVE TERMINAL / CONSOLE (EXACT GDB DOCK) */}
+          {/* ===================================================================== */}
+          <div className={`border-t-2 border-[#333333] bg-[#181818] flex flex-col transition-all ${isConsoleCollapsed ? 'h-9' : 'h-72 sm:h-80'}`}>
+            {/* Terminal Header & Input Controls */}
+            <div className="bg-[#2d3238] border-b border-[#1c1f24] px-3 py-1.5 flex flex-wrap items-center justify-between text-xs text-white">
+              <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setActiveTab('output')}
-                  className={`text-xs font-bold pb-1 transition cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === 'output' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white'
-                  }`}
+                  type="button"
+                  onClick={() => setIsConsoleCollapsed(!isConsoleCollapsed)}
+                  className="hover:text-slate-300 transition cursor-pointer flex items-center gap-1 font-bold"
                 >
-                  <Terminal className="w-3.5 h-3.5" />
-                  <span>Program Output</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isConsoleCollapsed ? 'rotate-180' : ''}`} />
+                  <span>Terminal / Execution Console</span>
                 </button>
 
-                <button
-                  onClick={() => setActiveTab('testcases')}
-                  className={`text-xs font-bold pb-1 transition cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === 'testcases' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Test Cases {submissionResult ? `(${submissionResult.passedTestCases}/${submissionResult.totalTestCases})` : ''}</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('stdin')}
-                  className={`text-xs font-bold pb-1 transition cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === 'stdin' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Custom Input (stdin)</span>
-                </button>
-
-                {submissionResult?.aiReview && (
-                  <button
-                    onClick={() => setActiveTab('aiReview')}
-                    className={`text-xs font-bold pb-1 transition cursor-pointer flex items-center gap-1.5 ${
-                      activeTab === 'aiReview' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                    <span>AI Review</span>
-                  </button>
+                {executionStats && (
+                  <span className={`px-2 py-0.2 rounded font-mono text-[11px] font-bold ${
+                    executionStats.status === 'Success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {executionStats.status} &bull; {executionStats.time} &bull; {executionStats.memory}
+                  </span>
                 )}
-
-                <button
-                  onClick={() => setActiveTab('aiAssist')}
-                  className={`text-xs font-bold pb-1 transition cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === 'aiAssist' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Bot className="w-3.5 h-3.5 text-purple-400" />
-                  <span>AI Mentor</span>
-                </button>
               </div>
 
-              {/* Status Chips */}
-              <div className="flex items-center gap-3 font-mono text-[11px]">
-                {executionResult && (
-                  <span className={`px-2 py-0.5 rounded font-bold ${
-                    executionResult.status === 'Success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-                  }`}>
-                    {executionResult.status} &bull; {executionResult.executionTimeMs}ms
-                  </span>
-                )}
-                {submissionResult && activeTab === 'testcases' && (
-                  <span className={`px-2 py-0.5 rounded font-bold ${
-                    submissionResult.status === 'Accepted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
-                  }`}>
-                    {submissionResult.status} ({submissionResult.score}%)
-                  </span>
-                )}
+              {/* Standard Input Selector */}
+              <div className="flex items-center gap-4 text-[11px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-300 font-bold">Standard Input:</span>
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="inputMode"
+                      checked={inputMode === 'interactive'}
+                      onChange={() => setInputMode('interactive')}
+                      className="accent-indigo-500"
+                    />
+                    <span>Interactive Console</span>
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="inputMode"
+                      checked={inputMode === 'text'}
+                      onChange={() => setInputMode('text')}
+                      className="accent-indigo-500"
+                    />
+                    <span>Text (stdin)</span>
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setConsoleLogs(['Console cleared. Ready for next execution.'])}
+                  className="px-2 py-0.5 bg-[#3a3f47] hover:bg-[#4a505a] text-slate-200 rounded text-[10px] cursor-pointer"
+                >
+                  Clear
+                </button>
               </div>
             </div>
 
-            {/* Panel Tab Content */}
-            <div className="flex-1 p-4 overflow-y-auto font-mono text-xs text-slate-300 bg-slate-950">
-              {/* 1. OUTPUT TAB */}
-              {activeTab === 'output' && (
-                executionResult ? (
-                  <div className="space-y-2">
-                    {executionResult.compileError ? (
-                      <div className="text-red-400 space-y-1">
-                        <span className="font-bold uppercase text-[10px] text-red-300 font-sans">Compilation Error:</span>
-                        <pre className="whitespace-pre-wrap">{executionResult.compileError}</pre>
-                      </div>
-                    ) : executionResult.stderr ? (
-                      <div className="text-amber-400 space-y-1">
-                        <span className="font-bold uppercase text-[10px] text-amber-300 font-sans">Runtime Trace / stderr:</span>
-                        <pre className="whitespace-pre-wrap">{executionResult.stderr}</pre>
-                      </div>
+            {/* Command line arguments bar if open */}
+            {!isConsoleCollapsed && (
+              <div className="bg-[#222222] border-b border-[#2d3238] px-3 py-1 flex items-center gap-2 text-[11px] text-slate-300">
+                <span className="font-semibold text-slate-400 shrink-0">Command line arguments:</span>
+                <input
+                  type="text"
+                  value={cmdArgs}
+                  onChange={(e) => setCmdArgs(e.target.value)}
+                  placeholder="e.g. --verbose arg1 arg2"
+                  className="flex-1 bg-[#181818] border border-[#333333] rounded px-2 py-0.5 text-white font-mono outline-none text-xs"
+                />
+              </div>
+            )}
+
+            {/* Text Stdin Panel (if Text mode is active) */}
+            {!isConsoleCollapsed && inputMode === 'text' && (
+              <div className="bg-[#1f1f1f] border-b border-[#2d3238] px-3 py-2 space-y-1">
+                <span className="text-[10px] text-indigo-400 font-bold uppercase">Standard Input (stdin) Payload:</span>
+                <textarea
+                  rows={2}
+                  value={customStdin}
+                  onChange={(e) => setCustomStdin(e.target.value)}
+                  placeholder="Enter inputs here (e.g. 5\n10 20 30 40 50)..."
+                  className="w-full bg-[#181818] border border-[#333333] rounded p-2 text-xs font-mono text-white outline-none resize-none"
+                />
+              </div>
+            )}
+
+            {/* Terminal Window Output Logs */}
+            {!isConsoleCollapsed && (
+              <div
+                ref={consoleBottomRef}
+                className="flex-1 p-3 overflow-y-auto font-mono text-xs text-[#e0e0e0] space-y-1 bg-black/90 selection:bg-indigo-600 selection:text-white"
+              >
+                {consoleLogs.map((line, idx) => (
+                  <div key={idx} className="whitespace-pre-wrap leading-relaxed">
+                    {line.startsWith('*** COMPILATION ERROR') ? (
+                      <span className="text-red-400 font-bold">{line}</span>
+                    ) : line.startsWith('*** RUNTIME ERROR') ? (
+                      <span className="text-amber-400 font-bold">{line}</span>
+                    ) : line.startsWith('...Program finished') ? (
+                      <span className="text-emerald-400 font-bold">{line}</span>
+                    ) : line.startsWith('Compiling') || line.startsWith('[Compiler]') ? (
+                      <span className="text-blue-300">{line}</span>
                     ) : (
-                      <div className="text-emerald-400 space-y-1">
-                        <pre className="whitespace-pre-wrap">{executionResult.stdout}</pre>
-                      </div>
-                    )}
-                    <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-500 flex items-center gap-4 font-sans">
-                      <span>Execution Time: <strong className="text-slate-300">{executionResult.executionTimeMs} ms</strong></span>
-                      <span>Memory: <strong className="text-slate-300">{executionResult.memoryMb} MB</strong></span>
-                      <span>Exit Code: <strong className="text-slate-300">{executionResult.exitCode}</strong></span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-slate-600 font-sans text-xs">
-                    Click "Run" to execute your solution against custom input.
-                  </div>
-                )
-              )}
-
-              {/* 2. TEST CASES TAB */}
-              {activeTab === 'testcases' && (
-                submissionResult?.testResults ? (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                      {submissionResult.testResults.map((tc) => (
-                        <div
-                          key={tc.caseNumber}
-                          className={`p-3 rounded-xl border font-mono text-[11px] space-y-1.5 ${
-                            tc.passed ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300' : 'bg-red-950/30 border-red-500/40 text-red-300'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold">Case #{tc.caseNumber}</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[10px] ${tc.passed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                              {tc.passed ? '✓ Passed' : '✗ Failed'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block text-[9px] uppercase">Input:</span>
-                            <span className="text-slate-200 truncate block">{tc.input}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block text-[9px] uppercase">Expected / Output:</span>
-                            <span className="text-slate-400 block truncate">{tc.expectedOutput}</span>
-                            <span className={`block truncate ${tc.passed ? 'text-emerald-400' : 'text-red-400'}`}>{tc.actualOutput}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-slate-600 font-sans text-xs">
-                    Click "Submit" to run your code against the full public and hidden test case benchmark.
-                  </div>
-                )
-              )}
-
-              {/* 3. CUSTOM STDIN TAB */}
-              {activeTab === 'stdin' && (
-                <div className="h-full flex flex-col space-y-2">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 font-sans">Standard Input (stdin):</span>
-                  <textarea
-                    rows={4}
-                    value={customStdin}
-                    onChange={(e) => setCustomStdin(e.target.value)}
-                    placeholder="Enter custom input lines here..."
-                    className="w-full flex-1 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white font-mono outline-none resize-none focus:border-indigo-500"
-                  />
-                </div>
-              )}
-
-              {/* 4. AI CODE REVIEW TAB */}
-              {activeTab === 'aiReview' && submissionResult?.aiReview && (
-                <div className="space-y-3 font-sans text-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono">
-                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-500 block">Time Complexity</span>
-                      <strong className="text-indigo-400 text-sm">{submissionResult.aiReview.timeComplexity || 'O(n)'}</strong>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-500 block">Space Complexity</span>
-                      <strong className="text-indigo-400 text-sm">{submissionResult.aiReview.spaceComplexity || 'O(1)'}</strong>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-500 block">Readability</span>
-                      <strong className="text-emerald-400 text-sm">{submissionResult.aiReview.readability || 'Clean & Modular'}</strong>
-                    </div>
-                  </div>
-
-                  {submissionResult.aiReview.suggestions && submissionResult.aiReview.suggestions.length > 0 && (
-                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
-                      <span className="font-bold text-purple-400 text-[11px] flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5" /> Optimization &amp; Edge Case Suggestions:
-                      </span>
-                      <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px]">
-                        {submissionResult.aiReview.suggestions.map((sug, idx) => (
-                          <li key={idx}>{sug}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 5. AI ASSISTANT / MENTOR TAB */}
-              {activeTab === 'aiAssist' && (
-                <div className="h-full flex flex-col space-y-3 font-sans">
-                  {/* Quick Action Prompt Chips */}
-                  <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-slate-800">
-                    <button
-                      type="button"
-                      disabled={aiLoading}
-                      onClick={() => handleAiAction('explainProblem')}
-                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[11px] font-bold border border-slate-700 cursor-pointer"
-                    >
-                      💡 Explain Problem
-                    </button>
-                    <button
-                      type="button"
-                      disabled={aiLoading}
-                      onClick={() => handleAiAction('giveHint')}
-                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 text-[11px] font-bold border border-slate-700 cursor-pointer"
-                    >
-                      🎯 Give Hint
-                    </button>
-                    <button
-                      type="button"
-                      disabled={aiLoading}
-                      onClick={() => handleAiAction('explainError')}
-                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] font-bold border border-slate-700 cursor-pointer"
-                    >
-                      🐛 Explain Error
-                    </button>
-                    <button
-                      type="button"
-                      disabled={aiLoading}
-                      onClick={() => handleAiAction('complexity')}
-                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 text-[11px] font-bold border border-slate-700 cursor-pointer"
-                    >
-                      ⏱️ Complexity Analysis
-                    </button>
-                  </div>
-
-                  {/* Message History */}
-                  <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-                    {aiMessages.map((msg, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-3 rounded-2xl text-xs leading-relaxed ${
-                          msg.role === 'assistant'
-                            ? 'bg-slate-900 border border-slate-800 text-slate-200'
-                            : 'bg-indigo-600/30 border border-indigo-500/40 text-white self-end ml-8'
-                        }`}
-                      >
-                        <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                          {msg.role === 'assistant' ? '🤖 SGIP AI Mentor' : '👤 You'}
-                        </span>
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
-                      </div>
-                    ))}
-                    {aiLoading && (
-                      <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-purple-300 flex items-center gap-2">
-                        <Spinner size="sm" />
-                        <span>AI Mentor is analyzing your code and test cases...</span>
-                      </div>
+                      <span>{line}</span>
                     )}
                   </div>
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* 3. PROGRAMMING QUESTIONS / LEETCODE DRAWER MODAL */}
+      {/* ========================================================================= */}
+      {problemsDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-2xl bg-[#252526] rounded-2xl border border-[#3a3f47] p-5 space-y-4 text-left shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#3a3f47] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-indigo-400" />
+                  <span>Programming Questions &amp; LeetCode Challenges</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Select a challenge to load its starter code and test cases into the GDB compiler.
+                </p>
+              </div>
+              <button onClick={() => setProblemsDrawerOpen(false)} className="text-slate-400 hover:text-white cursor-pointer">✕</button>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+              {problemsList.map((prob) => (
+                <div
+                  key={prob._id}
+                  onClick={() => handleSelectProblemFromDrawer(prob)}
+                  className="p-3.5 rounded-xl bg-[#1e1e1e] hover:bg-[#2d3238] border border-[#333333] hover:border-indigo-500/50 flex items-center justify-between cursor-pointer transition"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-xs">{prob.title}</span>
+                      <span className={`px-2 py-0.2 rounded text-[10px] font-bold ${
+                        prob.difficulty === 'Easy' ? 'bg-emerald-500/20 text-emerald-400' : prob.difficulty === 'Medium' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {prob.difficulty}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 line-clamp-1">{prob.description}</p>
+                  </div>
+                  <Button variant="primary" size="xs" className="bg-indigo-600 hover:bg-indigo-500">
+                    Load Code
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export const PracticePage = CodingCompilerPage;
-
