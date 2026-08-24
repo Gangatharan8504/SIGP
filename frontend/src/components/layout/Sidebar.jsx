@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard,
@@ -20,10 +20,12 @@ import {
   BarChart3,
   HelpCircle,
   Clock,
+  Terminal,
 } from 'lucide-react';
 
 export const Sidebar = ({ isOpen, onClose }) => {
   const { user, isStudent, isFaculty, isPlacementCoordinator } = useAuth();
+  const location = useLocation();
 
   if (!user) return null;
 
@@ -35,7 +37,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { label: 'Personalized Roadmap', path: '/learning-plan', icon: BookOpen },
     { label: 'Faculty Assignments', path: '/assignments', icon: FileCheck },
     { label: 'Mock Assessments & Exams', path: '/secure-exam/pattern-test', icon: Clock },
-    { label: 'Coding Compiler & LeetCode', path: '/compiler', icon: Code2 },
+    { label: 'Coding Compiler & Practice', path: '/practice', altPaths: ['/compiler'], icon: Terminal },
     { label: 'Projects & Hackathons', path: '/projects', icon: FolderGit2 },
     { label: 'Resume ATS Engine', path: '/resume-analyzer', icon: FileText },
     { label: 'Company Matchmaker', path: '/company-matching', icon: Building2 },
@@ -97,23 +99,29 @@ export const Sidebar = ({ isOpen, onClose }) => {
           </div>
 
           <nav className="space-y-1">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={onClose}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
-                    isActive
-                      ? 'bg-gradient-to-r from-rose-600/20 via-pink-600/15 to-rose-600/10 text-rose-300 light:text-rose-700 border border-rose-500/30 shadow-md shadow-rose-950/20 font-bold'
-                      : 'text-rose-200/60 light:text-slate-600 hover:text-white light:hover:text-rose-900 hover:bg-rose-500/10 light:hover:bg-rose-50 border border-transparent'
-                  }`
-                }
-              >
-                <item.icon className="w-4 h-4 shrink-0 text-rose-400 light:text-rose-600" />
-                <span className="truncate">{item.label}</span>
-              </NavLink>
-            ))}
+            {navItems.map((item) => {
+              const isItemActive =
+                location.pathname === item.path ||
+                (item.altPaths && item.altPaths.includes(location.pathname));
+
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={onClose}
+                  className={
+                    `flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition cursor-pointer ${
+                      isItemActive
+                        ? 'bg-gradient-to-r from-rose-600/20 via-pink-600/15 to-rose-600/10 text-rose-300 light:text-rose-700 border border-rose-500/30 shadow-md shadow-rose-950/20 font-bold'
+                        : 'text-rose-200/60 light:text-slate-600 hover:text-white light:hover:text-rose-900 hover:bg-rose-500/10 light:hover:bg-rose-50 border border-transparent'
+                    }`
+                  }
+                >
+                  <item.icon className="w-4 h-4 shrink-0 text-rose-400 light:text-rose-600" />
+                  <span className="truncate">{item.label}</span>
+                </NavLink>
+              );
+            })}
           </nav>
         </div>
 
