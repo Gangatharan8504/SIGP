@@ -21,20 +21,67 @@ const formatDuration = (seconds) => {
   return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 };
 
-// @desc    Start / Verify examination session with max 3 attempt check & dynamic AI question engine
+// @desc    Start / Resume examination session with 3-attempt check, session persistence & AI question engine
 // @route   POST /api/exam-proctor/session/start, POST /api/assessments/:assessmentId/generate
 const startExamSession = async (req, res) => {
   try {
     const { assessmentId = "full-pattern-test", screenShareGranted = false, consentAccepted = true } = req.body;
     const userId = req.user._id;
 
-    // Strict 3-Attempt Check on backend
+    // Check completed attempts
     const completedAttempts = await AssessmentSubmission.find({
       userId,
       $or: [{ assessmentId }, { assessmentId: "full-pattern-test" }],
     }).sort({ attemptNumber: 1 });
 
     const attemptCount = completedAttempts.length;
+
+    // Check if an active uncompleted session exists within valid exam duration (60 mins = 3600s)
+    const existingSession = await ExamSession.findOne({
+      studentId: userId,
+      assessmentId,
+      isCompleted: false,
+    }).sort({ createdAt: -1 });
+
+    if (existingSession) {
+      const elapsedSeconds = Math.floor((Date.now() - new Date(existingSession.startedAt).getTime()) / 1000);
+      const examDurationSec = 60 * 60; // 3600 seconds
+      const remainingSeconds = examDurationSec - elapsedSeconds;
+
+      if (remainingSeconds > 0) {
+        // Session is still active: return exact same question set and saved drafts
+        const sanitizedBank = sanitizeQuestionsForClient(existingSession.questions);
+        return res.json({
+          success: true,
+          sessionId: existingSession._id,
+          assessment: {
+            _id: assessmentId,
+            title: "Full Pattern Mock Assessment",
+            description: "Official 5-Section Placement Assessment (Aptitude, Reasoning, Verbal, Pseudo Code, Coding)",
+            durationMinutes: 60,
+            totalQuestions: 42,
+            maxAttempts: 3,
+            difficultyProfile: existingSession.difficultyProfile,
+          },
+          dynamicExam: sanitizedBank,
+          savedAnswers: existingSession.savedAnswers || {},
+          savedCodingAnswers: existingSession.savedCodingAnswers || {},
+          timeLeft: remainingSeconds,
+          attemptNumber: existingSession.attemptNumber,
+          remainingAttempts: Math.max(0, 3 - existingSession.attemptNumber),
+          isSecureExamMode: true,
+          isResumed: true,
+        });
+      } else {
+        // Session has expired: mark as completed
+        existingSession.isCompleted = true;
+        existingSession.submittedAt = new Date();
+        existingSession.durationSeconds = 3600;
+        await existingSession.save();
+      }
+    }
+
+    // Strict 3-Attempt Check on backend
     if (attemptCount >= 3) {
       return res.status(403).json({
         success: false,
@@ -58,8 +105,7 @@ const startExamSession = async (req, res) => {
       skillGaps: ["DSA", "System Design", "Aptitude"],
     });
 
-    // Save or update active ExamSession in database with full answer key stored safely
-    await ExamSession.deleteMany({ studentId: userId, assessmentId, isCompleted: false });
+    // Save active ExamSession in database with full answer key stored safely
     const session = await ExamSession.create({
       studentId: userId,
       assessmentId,
@@ -67,6 +113,8 @@ const startExamSession = async (req, res) => {
       startedAt: new Date(),
       difficultyProfile,
       questions: fullQuestionsBank,
+      savedAnswers: {},
+      savedCodingAnswers: {},
       isCompleted: false,
     });
 
@@ -118,16 +166,13 @@ const startExamSession = async (req, res) => {
         difficultyProfile,
       },
       dynamicExam: sanitizedBank,
+      savedAnswers: {},
+      savedCodingAnswers: {},
+      timeLeft: 3600,
       attemptNumber: nextAttemptNumber,
       remainingAttempts: 3 - nextAttemptNumber,
       isSecureExamMode: true,
-      sectionTimings: [
-        { sectionName: "Aptitude", durationMinutes: 10, questionCount: 10 },
-        { sectionName: "Reasoning", durationMinutes: 10, questionCount: 10 },
-        { sectionName: "Verbal", durationMinutes: 10, questionCount: 10 },
-        { sectionName: "Pseudo Code", durationMinutes: 10, questionCount: 10 },
-        { sectionName: "Coding", durationMinutes: 20, questionCount: 2 },
-      ],
+      isResumed: false,
     });
   } catch (err) {
     console.error("Start exam session error:", err);
@@ -177,24 +222,41 @@ const logIntegrityEvent = async (req, res) => {
   }
 };
 
-// @desc    Auto-save session progress
+// @desc    Auto-save session progress into ExamSession document
 // @route   POST /api/exam-proctor/autosave
 const autoSaveSession = async (req, res) => {
   try {
+    const { assessmentId = "full-pattern-test", attemptNumber = 1, answers = {}, codingAnswers = {} } = req.body;
+    const userId = req.user._id;
+
+    const session = await ExamSession.findOne({
+      studentId: userId,
+      assessmentId,
+      attemptNumber: Number(attemptNumber) || 1,
+      isCompleted: false,
+    });
+
+    if (session) {
+      session.savedAnswers = answers;
+      session.savedCodingAnswers = codingAnswers;
+      session.lastAutoSaveAt = new Date();
+      await session.save();
+    }
+
     return res.json({ success: true, message: "Progress cached safely in cloud database." });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Submit secure proctored examination and calculate real scores from actual answers
+// @desc    Submit secure proctored examination and evaluate real answers against stored answer key
 // @route   POST /api/exam-proctor/submit, POST /api/assessments/:assessmentId/submit
 const submitSecureExam = async (req, res) => {
   try {
     const {
       assessmentId = "full-pattern-test",
       attemptNumber = 1,
-      answers = [],
+      answers = {},
       codingAnswers = {},
       screenShareGranted = false,
       ipAddress = req.ip || "127.0.0.1",
@@ -206,7 +268,52 @@ const submitSecureExam = async (req, res) => {
     } = req.body;
     const userId = req.user._id;
 
-    // Find active exam session with the questions and correct answers
+    // Idempotency: Check if an AssessmentSubmission already exists for this attempt
+    const existingSubmission = await AssessmentSubmission.findOne({
+      userId,
+      assessmentId,
+      attemptNumber: Number(attemptNumber) || 1,
+    });
+
+    if (existingSubmission) {
+      return res.json({
+        success: true,
+        submissionId: existingSubmission._id,
+        feedback: {
+          examTitle: "Full Pattern Mock Assessment",
+          completedAt: new Date(existingSubmission.completedAt || existingSubmission.createdAt).toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          attemptNumber: existingSubmission.attemptNumber,
+          maxAttempts: 3,
+          timeSpentFormatted: formatDuration(existingSubmission.timeSpentSeconds || 3100),
+          timeSpentSeconds: existingSubmission.timeSpentSeconds || 3100,
+          totalQuestions: 42,
+          score: existingSubmission.score,
+          maxScore: existingSubmission.maxScore,
+          percentage: existingSubmission.percentage,
+          passed: existingSubmission.passed,
+          integrityScore: existingSubmission.integrityScore,
+          auditStatus: existingSubmission.reviewStatus,
+          ipAddress: "Masked",
+          tabSwitches: existingSubmission.tabSwitches || 0,
+          devToolsCount: existingSubmission.devToolsCount || 0,
+          cameraInterruptions: existingSubmission.cameraInterruptionCount || 0,
+          screenShareInterruptions: 0,
+          networkInterruptions: existingSubmission.networkInterruptionCount || 0,
+          sectionScores: existingSubmission.sectionScores || {},
+          aiRecommendations: existingSubmission.aiRecommendations || {},
+          emailSent: true,
+          emailMessage: "Scorecard dispatched to your registered email address.",
+        },
+      });
+    }
+
+    // Find active exam session with the stored questions and answer keys
     let session = await ExamSession.findOne({
       studentId: userId,
       assessmentId,
@@ -228,7 +335,7 @@ const submitSecureExam = async (req, res) => {
       Coding: { questions: 2, answered: 0, correct: 0, incorrect: 0, unanswered: 2, score: 0, maximumScore: 2, percentage: 0 },
     };
 
-    // Helper map of answers
+    // Helper map of candidate's selected answers
     const answersMap = {};
     if (Array.isArray(answers)) {
       answers.forEach((ans) => {
@@ -242,7 +349,7 @@ const submitSecureExam = async (req, res) => {
       Object.assign(answersMap, answers);
     }
 
-    // Evaluate MCQ sections
+    // Evaluate MCQ sections against stored answer key
     const evaluateSection = (secName, bankList) => {
       const metrics = sectionMetrics[secName];
       (bankList || []).forEach((q, idx) => {
@@ -283,7 +390,7 @@ const submitSecureExam = async (req, res) => {
     });
     sectionMetrics.Coding.percentage = Number(((sectionMetrics.Coding.score / sectionMetrics.Coding.maximumScore) * 100).toFixed(2));
 
-    // Aggregate Total
+    // Aggregate Total Scores
     const totalQuestions = 42;
     const answeredQuestions =
       sectionMetrics.Aptitude.answered +
@@ -332,7 +439,7 @@ const submitSecureExam = async (req, res) => {
       } else if (evt.eventType === "SCREEN_SHARE_STOPPED" || evt.eventType === "SCREEN_SHARE_INTERRUPTED") {
         realIntegrity -= 20;
         actualScreenDrops++;
-      } else if (evt.eventType === "CAMERA_DISABLED" || evt.eventType === "CAMERA_ABSENCE") {
+      } else if (evt.eventType === "CAMERA_DISABLED" || evt.eventType === "CAMERA_ABSENCE" || evt.eventType === "CAMERA_INTERRUPTED") {
         realIntegrity -= 15;
         actualCameraDrops++;
       } else if (evt.eventType === "FULLSCREEN_EXIT") {
@@ -373,7 +480,7 @@ const submitSecureExam = async (req, res) => {
       score: `${sub.percentage}%`,
       rawScore: `${sub.score} / ${sub.maxScore}`,
       integrityScore: `${sub.integrityScore}%`,
-      auditStatus: sub.reviewStatus || "Verified Clean",
+      reviewStatus: sub.reviewStatus || "Verified Clean",
       timeSpent: formatDuration(sub.timeSpentSeconds || 3100),
     }));
 
@@ -404,7 +511,7 @@ const submitSecureExam = async (req, res) => {
       improvementSummary.overallDelta = delta;
     }
 
-    // AI Performance Analysis via Groq (Real dynamic recommendations)
+    // AI Performance Analysis via Groq (Real dynamic recommendations based on actual section marks)
     let aiRecommendations = {
       strengths: [],
       weaknesses: [],
@@ -585,7 +692,7 @@ Return ONLY a JSON object with:
   }
 };
 
-// @desc    Get real historical attempt results from DB
+// @desc    Get real historical attempt results from DB with authorization check
 // @route   GET /api/exam-proctor/history/:assessmentId, GET /api/assessments/attempts/:attemptId/result
 const getAttemptHistory = async (req, res) => {
   try {

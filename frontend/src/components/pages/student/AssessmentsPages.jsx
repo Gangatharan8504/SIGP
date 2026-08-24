@@ -114,7 +114,7 @@ export const AssessmentsPage = () => {
   const avgScore =
     totalCompleted > 0
       ? Math.round(mySubmissions.reduce((acc, s) => acc + (s.percentage || 0), 0) / totalCompleted)
-      : 80;
+      : 0;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300 max-w-6xl mx-auto">

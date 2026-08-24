@@ -130,11 +130,19 @@ export const SecureExamMode = () => {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      setSecurityModalText('Network reconnected. Syncing progress with cloud server.');
+      setAutoSaveStatus('Saving...');
+      examProctorApi.autoSave({
+        assessmentId: assessment?._id || 'full-pattern-test',
+        attemptNumber,
+        answers,
+        codingAnswers: codingDrafts,
+      }).then(() => setAutoSaveStatus('Synced')).catch(() => {});
     };
+
     const handleOffline = () => {
       setIsOnline(false);
       setNetworkDropCount((prev) => prev + 1);
+      setAutoSaveStatus('Offline (Local Cache)');
       setSecurityModalText('Network connection lost. Offline local answer cache is active.');
       examProctorApi.logEvent({
         assessmentId: assessment?._id || 'full-pattern-test',
@@ -159,9 +167,9 @@ export const SecureExamMode = () => {
       window.removeEventListener('offline', handleOffline);
       clearInterval(pingTimer);
     };
-  }, [assessment, attemptNumber]);
+  }, [assessment, attemptNumber, answers, codingDrafts]);
 
-  // 10-Second Background Auto-Save
+  // 10-Second Background Auto-Save to MongoDB
   useEffect(() => {
     if (examState !== 'IN_PROGRESS') return;
 
@@ -285,7 +293,7 @@ export const SecureExamMode = () => {
     };
   }, [examState, attemptNumber, assessment]);
 
-  // Countdown Timer
+  // Countdown Timer & Auto-Submit on Zero
   useEffect(() => {
     if (examState !== 'IN_PROGRESS') return;
 
@@ -413,7 +421,7 @@ export const SecureExamMode = () => {
     }
   };
 
-  // Start Assessment: Calls Backend Groq Question Engine
+  // Start Assessment: Calls Backend Groq Question Engine (or resumes active session)
   const handleLaunchAssessment = async () => {
     if (!cameraAllowed || !screenShareAllowed) {
       alert('Please complete both Camera and Screen Sharing checks first.');
@@ -431,6 +439,12 @@ export const SecureExamMode = () => {
       if (res.data.success) {
         setAttemptNumber(res.data.attemptNumber);
         setRemainingAttempts(res.data.remainingAttempts);
+        if (res.data.timeLeft !== undefined) {
+          setTimeLeft(res.data.timeLeft);
+        }
+        if (res.data.savedAnswers) {
+          setAnswers(res.data.savedAnswers);
+        }
         if (res.data.dynamicExam?.sections) {
           const dynamicSections = res.data.dynamicExam.sections;
           setQuestionsBank({
@@ -441,12 +455,14 @@ export const SecureExamMode = () => {
             Coding: dynamicSections.Coding || dynamicSections.coding || [],
           });
 
-          // Set default coding drafts
+          // Set coding drafts
           const codingProbs = dynamicSections.Coding || dynamicSections.coding || [];
           if (codingProbs.length > 0) {
-            const initialDrafts = {};
+            const initialDrafts = res.data.savedCodingAnswers || {};
             codingProbs.forEach((cp) => {
-              initialDrafts[cp.id] = cp.starterCode?.java || '';
+              if (!initialDrafts[cp.id]) {
+                initialDrafts[cp.id] = cp.starterCode?.java || '';
+              }
             });
             setCodingDrafts(initialDrafts);
           }
@@ -719,7 +735,7 @@ export const SecureExamMode = () => {
                 {/* Editor */}
                 <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-950">
                   <div className="bg-slate-900 px-4 py-2 text-xs font-mono text-slate-400 flex items-center justify-between border-b border-slate-800">
-                    <span>Solution.{codingLanguage === 'java' ? 'java' : codingLanguage === 'python' ? 'py' : codingLanguage === 'cpp' ? 'cpp' : 'js'}</span>
+                    <span>Solution.{codingLanguage === 'java' ? 'java' : codingLanguage === 'python' ? 'py' : 'cpp'}</span>
                     <span>UTF-8 &bull; Strict Proctoring</span>
                   </div>
                   <textarea

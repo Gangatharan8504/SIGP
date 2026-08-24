@@ -38,6 +38,18 @@ const examSessionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       required: true,
     },
+    savedAnswers: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    savedCodingAnswers: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    lastAutoSaveAt: {
+      type: Date,
+      default: Date.now,
+    },
     isCompleted: {
       type: Boolean,
       default: false,
