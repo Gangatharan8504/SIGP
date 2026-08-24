@@ -7,10 +7,12 @@ const StudentSkill = require("../models/StudentSkill");
 const { emitStudentActivityEvent } = require("../services/eventService");
 const { sendExamResultEmail } = require("../services/emailService");
 const {
+  EMPTY_STARTER_TEMPLATES,
   generateMockAssessmentQuestions,
   sanitizeQuestionsForClient,
   getCuratedDefaultBank,
 } = require("../services/groqQuestionService");
+const { runTestCases } = require("../services/codeExecutionService");
 const { getGroqClient } = require("../config/ai");
 
 // Helper to format duration in HH:MM:SS
@@ -36,7 +38,7 @@ const startExamSession = async (req, res) => {
 
     const attemptCount = completedAttempts.length;
 
-    // Check if an active uncompleted session exists within valid exam duration (60 mins = 3600s)
+    // Check if an active uncompleted session exists within valid exam duration (80 mins = 4800s)
     const existingSession = await ExamSession.findOne({
       studentId: userId,
       assessmentId,
@@ -45,7 +47,7 @@ const startExamSession = async (req, res) => {
 
     if (existingSession) {
       const elapsedSeconds = Math.floor((Date.now() - new Date(existingSession.startedAt).getTime()) / 1000);
-      const examDurationSec = 60 * 60; // 3600 seconds
+      const examDurationSec = 80 * 60; // 80 minutes
       const remainingSeconds = examDurationSec - elapsedSeconds;
 
       if (remainingSeconds > 0) {
@@ -58,8 +60,9 @@ const startExamSession = async (req, res) => {
             _id: assessmentId,
             title: "Full Pattern Mock Assessment",
             description: "Official 5-Section Placement Assessment (Aptitude, Reasoning, Verbal, Pseudo Code, Coding)",
-            durationMinutes: 60,
+            durationMinutes: 80,
             totalQuestions: 42,
+            totalMarks: 60,
             maxAttempts: 3,
             difficultyProfile: existingSession.difficultyProfile,
           },
@@ -76,7 +79,7 @@ const startExamSession = async (req, res) => {
         // Session has expired: mark as completed
         existingSession.isCompleted = true;
         existingSession.submittedAt = new Date();
-        existingSession.durationSeconds = 3600;
+        existingSession.durationSeconds = 4800;
         await existingSession.save();
       }
     }
@@ -94,7 +97,6 @@ const startExamSession = async (req, res) => {
     const difficultyProfile =
       nextAttemptNumber === 1 ? "Easy + Medium" : nextAttemptNumber === 2 ? "Medium" : "Medium + Hard";
 
-    // Clean title - never show dates in title
     const cleanTitle = "Full Pattern Mock Assessment";
 
     // Generate questions using Groq backend service
@@ -150,7 +152,7 @@ const startExamSession = async (req, res) => {
       });
     }
 
-    // Strip answers and explanations before sending to client
+    // Strip answers, explanations, and prebuilt solutions before sending to client
     const sanitizedBank = sanitizeQuestionsForClient(fullQuestionsBank);
 
     return res.json({
@@ -160,15 +162,16 @@ const startExamSession = async (req, res) => {
         _id: assessmentId,
         title: cleanTitle,
         description: "Official 5-Section Placement Assessment (Aptitude, Reasoning, Verbal, Pseudo Code, Coding)",
-        durationMinutes: 60,
+        durationMinutes: 80,
         totalQuestions: 42,
+        totalMarks: 60,
         maxAttempts: 3,
         difficultyProfile,
       },
       dynamicExam: sanitizedBank,
       savedAnswers: {},
       savedCodingAnswers: {},
-      timeLeft: 3600,
+      timeLeft: 4800,
       attemptNumber: nextAttemptNumber,
       remainingAttempts: 3 - nextAttemptNumber,
       isSecureExamMode: true,
@@ -258,6 +261,7 @@ const submitSecureExam = async (req, res) => {
       attemptNumber = 1,
       answers = {},
       codingAnswers = {},
+      codingLanguages = {},
       screenShareGranted = false,
       ipAddress = req.ip || "127.0.0.1",
       browserUsed = req.headers["user-agent"] || "Chrome / Web",
@@ -294,7 +298,7 @@ const submitSecureExam = async (req, res) => {
           timeSpentSeconds: existingSubmission.timeSpentSeconds || 3100,
           totalQuestions: 42,
           score: existingSubmission.score,
-          maxScore: existingSubmission.maxScore,
+          maxScore: existingSubmission.maxScore || 60,
           percentage: existingSubmission.percentage,
           passed: existingSubmission.passed,
           integrityScore: existingSubmission.integrityScore,
@@ -307,6 +311,7 @@ const submitSecureExam = async (req, res) => {
           networkInterruptions: existingSubmission.networkInterruptionCount || 0,
           sectionScores: existingSubmission.sectionScores || {},
           aiRecommendations: existingSubmission.aiRecommendations || {},
+          reviewData: existingSubmission.reviewData || [],
           emailSent: true,
           emailMessage: "Scorecard dispatched to your registered email address.",
         },
@@ -321,18 +326,18 @@ const submitSecureExam = async (req, res) => {
     }).sort({ createdAt: -1 });
 
     let fullBank = session?.questions || getCuratedDefaultBank(attemptNumber);
-    const startedAt = session?.startedAt ? new Date(session.startedAt) : new Date(Date.now() - 3100000);
+    const startedAt = session?.startedAt ? new Date(session.startedAt) : new Date(Date.now() - 3600000);
     const submittedAt = new Date();
     const timeSpentSeconds = Math.max(10, Math.round((submittedAt.getTime() - startedAt.getTime()) / 1000));
     const timeSpentFormatted = formatDuration(timeSpentSeconds);
 
-    // Dynamic Section Evaluation
+    // Fixed 60 Marks Schema
     const sectionMetrics = {
       Aptitude: { questions: 10, answered: 0, correct: 0, incorrect: 0, unanswered: 10, score: 0, maximumScore: 10, percentage: 0 },
       Reasoning: { questions: 10, answered: 0, correct: 0, incorrect: 0, unanswered: 10, score: 0, maximumScore: 10, percentage: 0 },
       Verbal: { questions: 10, answered: 0, correct: 0, incorrect: 0, unanswered: 10, score: 0, maximumScore: 10, percentage: 0 },
       "Pseudo Code": { questions: 10, answered: 0, correct: 0, incorrect: 0, unanswered: 10, score: 0, maximumScore: 10, percentage: 0 },
-      Coding: { questions: 2, answered: 0, correct: 0, incorrect: 0, unanswered: 2, score: 0, maximumScore: 2, percentage: 0 },
+      Coding: { questions: 2, answered: 0, correct: 0, incorrect: 0, unanswered: 2, score: 0, maximumScore: 20, percentage: 0 },
     };
 
     // Helper map of candidate's selected answers
@@ -349,7 +354,9 @@ const submitSecureExam = async (req, res) => {
       Object.assign(answersMap, answers);
     }
 
-    // Evaluate MCQ sections against stored answer key
+    const reviewData = [];
+
+    // Evaluate MCQ sections (Aptitude, Reasoning, Verbal, Pseudo Code)
     const evaluateSection = (secName, bankList) => {
       const metrics = sectionMetrics[secName];
       (bankList || []).forEach((q, idx) => {
@@ -357,17 +364,39 @@ const submitSecureExam = async (req, res) => {
           ? answersMap[`${secName}_${idx}`]
           : answersMap[q.id];
 
-        if (studentAns !== undefined && studentAns !== null) {
+        const correctIdx = q.correctIndex !== undefined ? q.correctIndex : 0;
+        const isAttempted = studentAns !== undefined && studentAns !== null;
+        const isCorrect = isAttempted && Number(studentAns) === Number(correctIdx);
+
+        if (isAttempted) {
           metrics.answered += 1;
           metrics.unanswered -= 1;
-          const correctIdx = q.correctIndex !== undefined ? q.correctIndex : 1;
-          if (studentAns === correctIdx) {
+          if (isCorrect) {
             metrics.correct += 1;
             metrics.score += 1;
           } else {
             metrics.incorrect += 1;
           }
         }
+
+        reviewData.push({
+          section: secName,
+          questionNumber: idx + 1,
+          id: q.id || `${secName}_${idx + 1}`,
+          topic: q.topic || "General",
+          question: q.question || q.description || "",
+          codeSnippet: q.codeSnippet || null,
+          options: (q.options || []).map((opt) => (typeof opt === "string" ? opt : opt.text || "")),
+          studentAnswerIndex: isAttempted ? studentAns : null,
+          studentAnswerText: isAttempted && q.options[studentAns] ? (typeof q.options[studentAns] === "string" ? q.options[studentAns] : q.options[studentAns].text) : "Not Attempted",
+          correctAnswerIndex: correctIdx,
+          correctAnswerText: q.options[correctIdx] ? (typeof q.options[correctIdx] === "string" ? q.options[correctIdx] : q.options[correctIdx].text) : "",
+          isCorrect,
+          status: isCorrect ? "Correct" : isAttempted ? "Wrong" : "Unanswered",
+          marksEarned: isCorrect ? 1 : 0,
+          maxMarks: 1,
+          explanation: q.explanation || "Review standard domain principles for this problem.",
+        });
       });
       metrics.percentage = Number(((metrics.score / metrics.maximumScore) * 100).toFixed(2));
     };
@@ -377,20 +406,76 @@ const submitSecureExam = async (req, res) => {
     evaluateSection("Verbal", fullBank.sections?.verbal);
     evaluateSection("Pseudo Code", fullBank.sections?.pseudoCode);
 
-    // Evaluate Coding Section
+    // Evaluate Coding Section (Real Sandboxed Code Evaluation)
     const codingList = fullBank.sections?.coding || [];
-    codingList.forEach((c, idx) => {
-      const code = codingAnswers[c.id] || answersMap[`Coding_${idx}`];
-      if (code && typeof code === "string" && code.trim().length > 25) {
+    for (let idx = 0; idx < codingList.length; idx++) {
+      const c = codingList[idx];
+      const submittedCode = codingAnswers[c.id] || codingAnswers[`Coding_${idx}`] || "";
+      const lang = codingLanguages[c.id] || "java";
+      const testCases = c.testCases || [
+        { input: "sample in", output: "sample out", isHidden: false }
+      ];
+
+      let codingScore = 0;
+      let evalStatus = "Not Attempted";
+      let testResults = [];
+      const hasCode = typeof submittedCode === "string" && submittedCode.trim().length > 30;
+
+      if (hasCode) {
         sectionMetrics.Coding.answered += 1;
         sectionMetrics.Coding.unanswered -= 1;
-        sectionMetrics.Coding.correct += 1;
-        sectionMetrics.Coding.score += 1;
+
+        try {
+          const evalResult = await runTestCases({
+            language: lang,
+            code: submittedCode,
+            testCases,
+          });
+
+          evalStatus = evalResult.status;
+          testResults = evalResult.testResults || [];
+          const passedCount = evalResult.passedTestCases || 0;
+          const totalCount = evalResult.totalTestCases || testCases.length;
+
+          // 10 Marks per coding problem proportional to passed test cases
+          codingScore = totalCount > 0 ? Math.round((passedCount / totalCount) * 10) : 0;
+          if (codingScore >= 5) {
+            sectionMetrics.Coding.correct += 1;
+          } else {
+            sectionMetrics.Coding.incorrect += 1;
+          }
+        } catch (execErr) {
+          evalStatus = "Runtime Error";
+          codingScore = 0;
+        }
       }
-    });
+
+      sectionMetrics.Coding.score += codingScore;
+
+      reviewData.push({
+        section: "Coding",
+        questionNumber: idx + 1,
+        id: c.id || `c_${idx + 1}`,
+        topic: c.topic || "Algorithms",
+        title: c.title || `Coding Challenge ${idx + 1}`,
+        description: c.description || "",
+        inputFormat: c.inputFormat || "",
+        outputFormat: c.outputFormat || "",
+        constraints: c.constraints || [],
+        studentCode: submittedCode || "// No code submitted",
+        language: lang,
+        status: evalStatus,
+        isCorrect: codingScore >= 5,
+        marksEarned: codingScore,
+        maxMarks: 10,
+        testResults,
+        explanation: `Coding challenge evaluates algorithmic edge cases across ${testCases.length} test cases.`,
+      });
+    }
+
     sectionMetrics.Coding.percentage = Number(((sectionMetrics.Coding.score / sectionMetrics.Coding.maximumScore) * 100).toFixed(2));
 
-    // Aggregate Total Scores
+    // Aggregate Total Marks out of 60
     const totalQuestions = 42;
     const answeredQuestions =
       sectionMetrics.Aptitude.answered +
@@ -414,9 +499,15 @@ const submitSecureExam = async (req, res) => {
       sectionMetrics.Coding.incorrect;
 
     const unansweredQuestions = totalQuestions - answeredQuestions;
-    const totalScore = correctAnswers;
-    const maximumScore = 42;
-    const percentage = Number(((correctAnswers / totalQuestions) * 100).toFixed(2));
+    const totalScore =
+      sectionMetrics.Aptitude.score +
+      sectionMetrics.Reasoning.score +
+      sectionMetrics.Verbal.score +
+      sectionMetrics["Pseudo Code"].score +
+      sectionMetrics.Coding.score;
+
+    const maximumScore = 60; // 10 + 10 + 10 + 10 + 20 = 60 Marks
+    const percentage = Number(((totalScore / maximumScore) * 100).toFixed(2));
     const passed = percentage >= 50;
 
     // Real Integrity Score Calculation from Events
@@ -464,7 +555,7 @@ const submitSecureExam = async (req, res) => {
       auditStatus = "Needs Review";
     }
 
-    // Historical Attempts & Improvement Calculation
+    // Historical Attempts from Database
     const previousSubmissions = await AssessmentSubmission.find({
       userId,
       $or: [{ assessmentId }, { assessmentId: "full-pattern-test" }],
@@ -478,13 +569,12 @@ const submitSecureExam = async (req, res) => {
         year: "numeric",
       }),
       score: `${sub.percentage}%`,
-      rawScore: `${sub.score} / ${sub.maxScore}`,
+      rawScore: `${sub.score} / ${sub.maxScore || 60}`,
       integrityScore: `${sub.integrityScore}%`,
       reviewStatus: sub.reviewStatus || "Verified Clean",
       timeSpent: formatDuration(sub.timeSpentSeconds || 3100),
     }));
 
-    // Add current attempt to history list
     const currentCompletedDate = submittedAt.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
@@ -500,40 +590,29 @@ const submitSecureExam = async (req, res) => {
       timeSpent: timeSpentFormatted,
     });
 
-    // Improvement Delta Calculation
-    let improvementSummary = {
-      overallDelta: 0,
-      sectionDeltas: {},
-    };
-    if (previousSubmissions.length > 0) {
-      const firstSub = previousSubmissions[0];
-      const delta = Number((percentage - firstSub.percentage).toFixed(2));
-      improvementSummary.overallDelta = delta;
-    }
-
-    // AI Performance Analysis via Groq (Real dynamic recommendations based on actual section marks)
+    // AI Performance Analysis via Groq
     let aiRecommendations = {
       strengths: [],
       weaknesses: [],
       actionableTips: [],
       verdict: passed
-        ? "Tier-1 Placement Competency Benchmark Cleared"
+        ? "Placement Benchmark Standard Achieved"
         : "Focused Remediation Recommended Before Next Drive",
     };
 
     const groq = getGroqClient();
     if (groq) {
       try {
-        const perfPrompt = `A student completed a 42-question placement mock assessment.
-Results:
+        const perfPrompt = `A candidate completed a 42-question placement assessment (Max Marks: 60).
+Section Scores:
 - Aptitude: ${sectionMetrics.Aptitude.score}/${sectionMetrics.Aptitude.maximumScore} (${sectionMetrics.Aptitude.percentage}%)
 - Reasoning: ${sectionMetrics.Reasoning.score}/${sectionMetrics.Reasoning.maximumScore} (${sectionMetrics.Reasoning.percentage}%)
 - Verbal: ${sectionMetrics.Verbal.score}/${sectionMetrics.Verbal.maximumScore} (${sectionMetrics.Verbal.percentage}%)
 - Pseudo Code: ${sectionMetrics["Pseudo Code"].score}/${sectionMetrics["Pseudo Code"].maximumScore} (${sectionMetrics["Pseudo Code"].percentage}%)
 - Coding: ${sectionMetrics.Coding.score}/${sectionMetrics.Coding.maximumScore} (${sectionMetrics.Coding.percentage}%)
-- Overall: ${totalScore}/${maximumScore} (${percentage}%)
+- Total Score: ${totalScore}/${maximumScore} (${percentage}%)
 
-Return ONLY a JSON object with:
+Return ONLY a JSON object:
 {
   "strengths": ["Top strength with specific area", "Second strength"],
   "weaknesses": ["Primary weakness with specific topic", "Second weakness"],
@@ -559,11 +638,10 @@ Return ONLY a JSON object with:
       }
     }
 
-    // Fallback if AI not reachable
     if (aiRecommendations.strengths.length === 0) {
       const sortedSecs = Object.entries(sectionMetrics).sort((a, b) => b[1].percentage - a[1].percentage);
       aiRecommendations.strengths = [
-        `Highest proficiency demonstrated in ${sortedSecs[0][0]} (${sortedSecs[0][1].percentage}%).`,
+        `Highest accuracy demonstrated in ${sortedSecs[0][0]} (${sortedSecs[0][1].percentage}%).`,
         `Solid execution in ${sortedSecs[1][0]} (${sortedSecs[1][1].percentage}%).`,
       ];
       aiRecommendations.weaknesses = [
@@ -572,7 +650,6 @@ Return ONLY a JSON object with:
       ];
       aiRecommendations.actionableTips = [
         `Complete 5 targeted practice modules in ${sortedSecs[sortedSecs.length - 1][0]}.`,
-        `Maintain continuous time discipline across MCQ and Coding challenges.`,
         `Target 75%+ score on your next mock assessment attempt.`,
       ];
     }
@@ -585,7 +662,7 @@ Return ONLY a JSON object with:
       await session.save();
     }
 
-    // Save AssessmentSubmission in Database
+    // Save AssessmentSubmission in Database with full question reviewData
     const submission = await AssessmentSubmission.create({
       assessmentId: assessmentId,
       userId,
@@ -605,6 +682,9 @@ Return ONLY a JSON object with:
       cameraInterruptionCount: actualCameraDrops,
       networkInterruptionCount: actualNetworkDrops,
       sectionScores: sectionMetrics,
+      answers,
+      codingAnswers,
+      reviewData,
       timeSpentSeconds,
       startTime: startedAt,
       endTime: submittedAt,
@@ -670,7 +750,7 @@ Return ONLY a JSON object with:
         passed,
         integrityScore: finalIntegrityScore,
         auditStatus,
-        ipAddress: "Masked", // Privacy masked for student view
+        ipAddress: "Masked",
         tabSwitches: actualTabSwitches,
         devToolsCount: actualDevTools,
         cameraInterruptions: actualCameraDrops,
@@ -678,16 +758,71 @@ Return ONLY a JSON object with:
         networkInterruptions: actualNetworkDrops,
         sectionScores: sectionMetrics,
         aiRecommendations,
-        improvementSummary,
+        reviewData,
         attemptHistory: attemptsHistory,
         emailSent,
         emailMessage: emailSent
           ? "Scorecard dispatched to your registered email address."
-          : "Scorecard email could not be delivered. Please check network settings.",
+          : "Scorecard email could not be delivered.",
       },
     });
   } catch (err) {
     console.error("Submit secure exam error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Get complete question review for an attempt
+// @route   GET /api/exam-proctor/review/:attemptId, GET /api/assessments/attempts/:attemptId/review
+const getAttemptReview = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const userId = req.user._id;
+
+    let submission = null;
+    if (attemptId.match(/^[0-9a-fA-F]{24}$/)) {
+      submission = await AssessmentSubmission.findById(attemptId);
+    } else {
+      submission = await AssessmentSubmission.findOne({
+        userId,
+        attemptNumber: Number(attemptId) || 1,
+      }).sort({ createdAt: -1 });
+    }
+
+    if (!submission) {
+      submission = await AssessmentSubmission.findOne({ userId }).sort({ createdAt: -1 });
+    }
+
+    if (!submission) {
+      return res.status(404).json({ success: false, message: "Submission not found" });
+    }
+
+    // Authorization: Student can only review their own submission unless faculty
+    if (submission.userId.toString() !== userId.toString() && req.user.role !== "faculty" && req.user.role !== "placement_coordinator" && req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Unauthorized to review this candidate's assessment." });
+    }
+
+    return res.json({
+      success: true,
+      examTitle: "Full Pattern Mock Assessment",
+      attemptNumber: submission.attemptNumber,
+      score: submission.score,
+      maxScore: submission.maxScore || 60,
+      percentage: submission.percentage,
+      timeSpentFormatted: formatDuration(submission.timeSpentSeconds || 3600),
+      integrityScore: submission.integrityScore,
+      auditStatus: submission.reviewStatus,
+      completedAt: new Date(submission.completedAt || submission.createdAt).toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      sectionScores: submission.sectionScores,
+      reviewData: submission.reviewData || [],
+    });
+  } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -705,6 +840,7 @@ const getAttemptHistory = async (req, res) => {
     }).sort({ attemptNumber: 1 });
 
     const attempts = submissions.map((sub) => ({
+      submissionId: sub._id,
       attemptNumber: sub.attemptNumber,
       completedDate: new Date(sub.completedAt || sub.createdAt).toLocaleDateString("en-GB", {
         day: "2-digit",
@@ -712,12 +848,13 @@ const getAttemptHistory = async (req, res) => {
         year: "numeric",
       }),
       score: `${sub.percentage}%`,
-      rawScore: `${sub.score} / ${sub.maxScore}`,
+      rawScore: `${sub.score} / ${sub.maxScore || 60}`,
       integrityScore: `${sub.integrityScore}%`,
       reviewStatus: sub.reviewStatus || "Verified Clean",
       timeSpent: formatDuration(sub.timeSpentSeconds || 3100),
       sectionScores: sub.sectionScores,
       aiRecommendations: sub.aiRecommendations,
+      hasReview: Array.isArray(sub.reviewData) && sub.reviewData.length > 0,
     }));
 
     return res.json({
@@ -756,6 +893,7 @@ module.exports = {
   logIntegrityEvent,
   autoSaveSession,
   submitSecureExam,
+  getAttemptReview,
   getAttemptHistory,
   getFacultyExamAnalytics,
 };

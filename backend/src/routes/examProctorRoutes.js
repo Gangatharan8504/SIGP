@@ -4,6 +4,7 @@ const {
   logIntegrityEvent,
   autoSaveSession,
   submitSecureExam,
+  getAttemptReview,
   getAttemptHistory,
   getFacultyExamAnalytics,
 } = require("../controllers/examProctorController");
@@ -15,6 +16,7 @@ router.post("/session/start", protect, startExamSession);
 router.post("/events/log", protect, logIntegrityEvent);
 router.post("/autosave", protect, autoSaveSession);
 router.post("/submit", protect, submitSecureExam);
+router.get("/review/:attemptId", protect, getAttemptReview);
 router.get("/history/:assessmentId", protect, getAttemptHistory);
 router.get(
   "/faculty/analytics/:assessmentId",

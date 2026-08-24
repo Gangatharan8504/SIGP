@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { examProctorApi } from '../../../api/apis';
+import { examProctorApi, codeApi } from '../../../api/apis';
 import {
   Camera,
   Shield,
@@ -38,7 +38,9 @@ import {
   ShieldAlert,
   PauseCircle,
   HelpCircle,
-  CheckCircle
+  CheckCircle,
+  Code2,
+  Filter
 } from 'lucide-react';
 import { Button, Badge, Spinner } from '../../common/UIElements';
 import confetti from 'canvas-confetti';
@@ -48,7 +50,7 @@ const SECTIONS_CONFIG = [
   { sNo: 2, name: 'Reasoning', questions: 10, duration: 10, marks: 10 },
   { sNo: 3, name: 'Verbal', questions: 10, duration: 10, marks: 10 },
   { sNo: 4, name: 'Pseudo Code', questions: 10, duration: 10, marks: 10 },
-  { sNo: 5, name: 'Coding', questions: 2, duration: 20, marks: 2 },
+  { sNo: 5, name: 'Coding', questions: 2, duration: 40, marks: 20 },
 ];
 
 const BENCHMARK_LIST = [
@@ -59,7 +61,16 @@ const BENCHMARK_LIST = [
   { id: 'core-cs', title: 'Core Computer Science & Systems Diagnostic', category: 'Core CS', active: false },
 ];
 
-// Rich Curated 42 Placement Question Bank (10 Aptitude + 10 Reasoning + 10 Verbal + 10 Pseudo Code + 2 Coding)
+// Clean empty starter templates - NEVER include prebuilt solutions
+const EMPTY_STARTER_TEMPLATES = {
+  java: `import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        // Write your solution here\n    }\n}`,
+  python: `def main():\n    # Write your solution here\n    pass\n\nif __name__ == "__main__":\n    main()`,
+  c: `#include <stdio.h>\n\nint main() {\n    // Write your solution here\n    return 0;\n}`,
+  cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your solution here\n    return 0;\n}`,
+  javascript: `function main() {\n    // Write your solution here\n}\n\nmain();`,
+};
+
+// Rich Curated 42 Placement Question Bank
 const INITIAL_QUESTIONS_BANK = {
   Aptitude: [
     {
@@ -67,70 +78,110 @@ const INITIAL_QUESTIONS_BANK = {
       topic: "Speed, Time & Distance",
       question: "A train running at 60 km/hr crosses a pole in 9 seconds. What is the length of the train in meters?",
       difficulty: "easy",
+      marks: 1,
       options: ["120 meters", "150 meters", "180 meters", "324 meters"],
+      correctIndex: 1,
+      correctAnswer: "150 meters",
+      explanation: "Speed in m/s = 60 * (5/18) = 50/3 m/s. Length = Speed * Time = (50/3) * 9 = 150 meters."
     },
     {
       id: "apt_2",
       topic: "Time and Work Efficiency",
       question: "A can complete a piece of work in 12 days, and B can complete the same work in 18 days. If they work together for 4 days, what fraction of the work remains?",
       difficulty: "medium",
+      marks: 1,
       options: ["4/9", "5/9", "1/3", "2/5"],
+      correctIndex: 0,
+      correctAnswer: "4/9",
+      explanation: "1-day work = (1/12 + 1/18) = 5/36. In 4 days, work done = 4 * (5/36) = 20/36 = 5/9. Remaining work = 1 - 5/9 = 4/9."
     },
     {
       id: "apt_3",
       topic: "Profit and Loss Margin",
       question: "An article is sold at a 15% discount on marked price, yielding a profit of 20%. If marked price is $120, what is the cost price?",
       difficulty: "medium",
+      marks: 1,
       options: ["$85", "$90", "$95", "$100"],
+      correctIndex: 0,
+      correctAnswer: "$85",
+      explanation: "Selling Price = 120 * 0.85 = $102. Cost Price = 102 / 1.20 = $85."
     },
     {
       id: "apt_4",
       topic: "Permutations & Combinations",
       question: "In how many distinct ways can the letters of the word 'LEADER' be arranged such that vowels always stay together?",
       difficulty: "medium",
+      marks: 1,
       options: ["72", "144", "360", "48"],
+      correctIndex: 0,
+      correctAnswer: "72",
+      explanation: "Vowels: E, A, E (3 letters with 2 E's). Consonants: L, D, R (3 letters). Units to arrange = 4! / 1 = 24. Vowel permutations = 3! / 2! = 3. Total ways = 24 * 3 = 72."
     },
     {
       id: "apt_5",
       topic: "Compound Interest Compounding",
       question: "A sum of money invested at compound interest doubles itself in 4 years. In how many years will it become 8 times of itself at the same rate?",
       difficulty: "medium",
+      marks: 1,
       options: ["8 years", "12 years", "16 years", "24 years"],
+      correctIndex: 1,
+      correctAnswer: "12 years",
+      explanation: "Amount doubles (2^1) in 4 years. 8 times = 2^3 times. Time required = 4 * 3 = 12 years."
     },
     {
       id: "apt_6",
       topic: "Probability of Dice Roll",
       question: "Two unbiased dice are rolled simultaneously. What is the probability that the sum of the numbers appearing on top is a prime number?",
       difficulty: "medium",
+      marks: 1,
       options: ["5/12", "7/36", "1/2", "11/36"],
+      correctIndex: 0,
+      correctAnswer: "5/12",
+      explanation: "Primes possible: 2 (1 pair), 3 (2 pairs), 5 (4 pairs), 7 (6 pairs), 11 (2 pairs). Total favorable outcomes = 1 + 2 + 4 + 6 + 2 = 15. Probability = 15/36 = 5/12."
     },
     {
       id: "apt_7",
       topic: "Ratios & Mixtures",
       question: "A mixture of 60 liters contains milk and water in the ratio 2:1. How much water must be added to make the ratio of milk to water 1:2?",
       difficulty: "medium",
+      marks: 1,
       options: ["40 liters", "60 liters", "30 liters", "50 liters"],
+      correctIndex: 1,
+      correctAnswer: "60 liters",
+      explanation: "Milk = 40L, Water = 20L. For 1:2 ratio, Total Water needed = 40 * 2 = 80L. Water to add = 80 - 20 = 60 liters."
     },
     {
       id: "apt_8",
       topic: "Pipes & Cisterns",
       question: "Pipe A can fill a tank in 6 hours, and Pipe B can empty it in 8 hours. If both pipes are opened simultaneously, in how many hours will the tank be filled?",
       difficulty: "easy",
+      marks: 1,
       options: ["12 hours", "24 hours", "18 hours", "14 hours"],
+      correctIndex: 1,
+      correctAnswer: "24 hours",
+      explanation: "Net filling rate per hour = 1/6 - 1/8 = (4 - 3)/24 = 1/24. Total time = 24 hours."
     },
     {
       id: "apt_9",
       topic: "Averages & Age Progression",
       question: "The average age of a family of 5 members is 24 years. If the age of the youngest member is 8 years, what was the average age of the family at the birth of the youngest member?",
       difficulty: "medium",
+      marks: 1,
       options: ["16 years", "20 years", "18 years", "22 years"],
+      correctIndex: 1,
+      correctAnswer: "20 years",
+      explanation: "Total present age = 5 * 24 = 120. 8 years ago, sum of ages of 4 members = 120 - (5 * 8) = 80. Average = 80 / 4 = 20 years."
     },
     {
       id: "apt_10",
       topic: "Number System Divisibility",
       question: "What is the smallest number which when divided by 8, 12, and 16 leaves a remainder of 3 in each case?",
       difficulty: "easy",
+      marks: 1,
       options: ["45", "51", "99", "48"],
+      correctIndex: 1,
+      correctAnswer: "51",
+      explanation: "LCM(8, 12, 16) = 48. Smallest required number = LCM + Remainder = 48 + 3 = 51."
     }
   ],
   Reasoning: [
@@ -139,168 +190,260 @@ const INITIAL_QUESTIONS_BANK = {
       topic: "Blood Relations Deduction",
       question: "Pointing to a photograph, Suresh said, 'He is the son of the only son of my mother.' How is Suresh related to the boy?",
       difficulty: "easy",
+      marks: 1,
       options: ["Brother", "Father", "Uncle", "Grandfather"],
+      correctIndex: 1,
+      correctAnswer: "Father",
+      explanation: "Only son of Suresh's mother is Suresh himself. So the boy is Suresh's son."
     },
     {
       id: "reas_2",
       topic: "Direction Sense Tracking",
       question: "A man walks 5 km East, turns right and walks 4 km, then turns left and walks 5 km. In which direction is he from the starting point?",
       difficulty: "medium",
+      marks: 1,
       options: ["South-East", "North-East", "South", "East"],
+      correctIndex: 0,
+      correctAnswer: "South-East",
+      explanation: "East movement = 10 km, South movement = 4 km. Overall direction from origin is South-East."
     },
     {
       id: "reas_3",
-      topic: "Coding-Decoding Pattern",
+      topic: "Coding-Decoding Reversal",
       question: "In a certain code language, 'SYSTEM' is coded as 'SYSMET' and 'NEARER' is coded as 'AENRER'. How is 'FRACTION' coded?",
       difficulty: "medium",
+      marks: 1,
       options: ["CARFNOIT", "NOITCARF", "ARFCNOIT", "CRAFINTO"],
+      correctIndex: 0,
+      correctAnswer: "CARFNOIT",
+      explanation: "Word is divided in halves of 4 letters each and reversed: 'FRAC' -> 'CARF', 'TION' -> 'NOIT'. Result: CARFNOIT."
     },
     {
       id: "reas_4",
-      topic: "Syllogisms Validity",
+      topic: "Syllogisms Universal",
       question: "Statements: All cars are cats. All cats are fans. Conclusions: I. All cars are fans. II. Some fans are cars.",
       difficulty: "easy",
+      marks: 1,
       options: ["Only I follows", "Only II follows", "Both I and II follow", "Neither follows"],
+      correctIndex: 2,
+      correctAnswer: "Both I and II follow",
+      explanation: "Universal affirmative chaining: Cars ⊆ Cats ⊆ Fans. Thus all cars are fans and some fans are cars."
     },
     {
       id: "reas_5",
       topic: "Circular Seating Arrangement",
       question: "6 people A, B, C, D, E, F sit facing the center. A sits opposite B. C sits between A and D. E sits to the immediate left of B. Who sits opposite C?",
       difficulty: "medium",
+      marks: 1,
       options: ["E", "F", "D", "B"],
+      correctIndex: 0,
+      correctAnswer: "E",
+      explanation: "Placing circularly: A at top, B at bottom. C and D on left, E and F on right. C is directly opposite E."
     },
     {
       id: "reas_6",
-      topic: "Number Series Completion",
+      topic: "Cubic Number Series",
       question: "Find the next number in the series: 7, 26, 63, 124, 215, ?",
       difficulty: "medium",
+      marks: 1,
       options: ["342", "343", "256", "512"],
+      correctIndex: 0,
+      correctAnswer: "342",
+      explanation: "Pattern is n^3 - 1. 2^3-1=7, 3^3-1=26, 4^3-1=63, 5^3-1=124, 6^3-1=215, 7^3-1 = 343 - 1 = 342."
     },
     {
       id: "reas_7",
-      topic: "Statement and Assumption",
+      topic: "Statement and Assumptions",
       question: "Statement: 'Please consult a doctor before taking this medicine.' Assumptions: I. Many people take medicines without medical consultation. II. Doctors know appropriate medicine dosages.",
       difficulty: "easy",
+      marks: 1,
       options: ["Only I is implicit", "Only II is implicit", "Both I and II are implicit", "Neither is implicit"],
+      correctIndex: 2,
+      correctAnswer: "Both I and II are implicit",
+      explanation: "Warning implies people may self-medicate (I) and doctors have proper dosage knowledge (II)."
     },
     {
       id: "reas_8",
-      topic: "Analogy Matrix",
+      topic: "Scientific Analogy",
       question: "Thermometer : Temperature :: Hygrometer : ?",
       difficulty: "easy",
+      marks: 1,
       options: ["Pressure", "Humidity", "Density", "Altitude"],
+      correctIndex: 1,
+      correctAnswer: "Humidity",
+      explanation: "A thermometer measures temperature; a hygrometer measures humidity."
     },
     {
       id: "reas_9",
-      topic: "Clocks and Angles",
+      topic: "Clock Hands Angle",
       question: "What is the angle between the minute hand and the hour hand of a clock at 3:40?",
       difficulty: "medium",
+      marks: 1,
       options: ["120°", "130°", "140°", "125°"],
+      correctIndex: 1,
+      correctAnswer: "130°",
+      explanation: "Angle = |30 * H - (11/2) * M| = |30 * 3 - 5.5 * 40| = |90 - 220| = 130°."
     },
     {
       id: "reas_10",
-      topic: "Data Sufficiency",
+      topic: "Height Order Data Sufficiency",
       question: "Who is the tallest among P, Q, R, S, T? Statement 1: P is taller than Q but shorter than R. Statement 2: T is shorter than S but taller than R.",
       difficulty: "medium",
+      marks: 1,
       options: ["Statement 1 alone is sufficient", "Both Statements 1 and 2 together are sufficient", "Statement 2 alone is sufficient", "Statements are not sufficient"],
+      correctIndex: 1,
+      correctAnswer: "Both Statements 1 and 2 together are sufficient",
+      explanation: "Combining 1 and 2: S > T > R > P > Q. S is tallest. Both statements together are sufficient."
     }
   ],
   Verbal: [
     {
       id: "verb_1",
-      topic: "Synonym Identification",
+      topic: "Vocabulary Synonyms",
       question: "Choose the word most nearly similar in meaning to: 'PRAGMATIC'",
       difficulty: "easy",
+      marks: 1,
       options: ["Theoretical", "Practical", "Idealistic", "Vague"],
+      correctIndex: 1,
+      correctAnswer: "Practical",
+      explanation: "Pragmatic means dealing with things sensibly and realistically based on practical rather than theoretical considerations."
     },
     {
       id: "verb_2",
-      topic: "Sentence Correction",
+      topic: "Subject-Verb Agreement",
       question: "Identify the grammatically correct sentence:",
       difficulty: "easy",
+      marks: 1,
       options: ["Neither the teacher nor the students was present.", "Neither the teacher nor the students were present.", "Neither the teacher or the students was present.", "Neither the teacher nor the students is present."],
+      correctIndex: 1,
+      correctAnswer: "Neither the teacher nor the students were present.",
+      explanation: "In 'Neither...nor' with compound subjects, the verb agrees with the closer subject ('students' -> 'were')."
     },
     {
       id: "verb_3",
-      topic: "Antonym Identification",
+      topic: "Antonyms Inversion",
       question: "Select the word opposite in meaning to: 'METICULOUS'",
       difficulty: "easy",
+      marks: 1,
       options: ["Careless", "Accurate", "Fastidious", "Thorough"],
+      correctIndex: 0,
+      correctAnswer: "Careless",
+      explanation: "Meticulous means showing great attention to detail. Its opposite is careless."
     },
     {
       id: "verb_4",
-      topic: "Idioms and Phrases",
+      topic: "Idioms & Phrasal Meanings",
       question: "What is the meaning of the idiom: 'To beat around the bush'?",
       difficulty: "easy",
+      marks: 1,
       options: ["To search thoroughly", "To avoid the main topic", "To win easily", "To act aggressively"],
+      correctIndex: 1,
+      correctAnswer: "To avoid the main topic",
+      explanation: "'Beat around the bush' means avoiding discussing the core subject directly."
     },
     {
       id: "verb_5",
-      topic: "Para Jumbles Sequence",
-      question: "Arrange the parts in proper order: P: in developing country Q: plays an indispensable role R: education S: in economic upliftment",
+      topic: "Para Jumbles Cohesion",
+      question: "Arrange the parts in proper grammatical order: P: in developing country Q: plays an indispensable role R: education S: in economic upliftment",
       difficulty: "medium",
+      marks: 1,
       options: ["R-Q-S-P", "P-R-Q-S", "Q-S-P-R", "S-P-R-Q"],
+      correctIndex: 0,
+      correctAnswer: "R-Q-S-P",
+      explanation: "'Education (R) plays an indispensable role (Q) in economic upliftment (S) in developing country (P)'."
     },
     {
       id: "verb_6",
-      topic: "Spotting Errors",
-      question: "Find the part with error: 'One of the candidate (A) / who attended the interview (B) / was selected for the role (C) / No Error (D)'",
+      topic: "Error Identification Plurality",
+      question: "Find the error part: 'One of the candidate (A) / who attended the interview (B) / was selected for the role (C) / No Error (D)'",
       difficulty: "medium",
+      marks: 1,
       options: ["Part A ('One of the candidate')", "Part B", "Part C", "No Error"],
+      correctIndex: 0,
+      correctAnswer: "Part A ('One of the candidate')",
+      explanation: "'One of the' must be followed by plural noun 'candidates'."
     },
     {
       id: "verb_7",
-      topic: "One Word Substitution",
+      topic: "One Word Substitution Linguistics",
       question: "A person who is fluent in two languages is termed as:",
       difficulty: "easy",
+      marks: 1,
       options: ["Bilingual", "Polyglot", "Linguist", "Monolingual"],
+      correctIndex: 0,
+      correctAnswer: "Bilingual",
+      explanation: "Bilingual is a person speaking two languages fluently."
     },
     {
       id: "verb_8",
-      topic: "Prepositions",
+      topic: "Prepositional Collocations",
       question: "The manager was astonished ______ the exceptional performance of the new intern.",
       difficulty: "easy",
+      marks: 1,
       options: ["at", "with", "for", "in"],
+      correctIndex: 0,
+      correctAnswer: "at",
+      explanation: "'Astonished' takes preposition 'at' when referring to actions or achievements."
     },
     {
       id: "verb_9",
-      topic: "Active and Passive Voice",
+      topic: "Passive Voice Transformation",
       question: "Convert to passive: 'The developer deployed the new microservice yesterday.'",
       difficulty: "medium",
+      marks: 1,
       options: ["The new microservice was deployed by the developer yesterday.", "The new microservice had been deployed yesterday.", "The new microservice is deployed by the developer.", "The new microservice were deployed by the developer."],
+      correctIndex: 0,
+      correctAnswer: "The new microservice was deployed by the developer yesterday.",
+      explanation: "Past simple active 'deployed' converts to past simple passive 'was deployed'."
     },
     {
       id: "verb_10",
       topic: "Reading Comprehension Inference",
-      question: "'Automation eliminates repetitive cognitive overhead, enabling engineers to focus on architectural resilience.' What is the primary takeaway?",
+      question: "'Automation eliminates repetitive cognitive overhead, enabling engineers to focus on architectural resilience.' What is the primary inference?",
       difficulty: "medium",
+      marks: 1,
       options: ["Automation completely replaces engineering staff.", "Automation shifts engineering focus toward higher-order design problems.", "Repetitive tasks are essential for system resilience.", "Engineers should avoid architectural tasks."],
+      correctIndex: 1,
+      correctAnswer: "Automation shifts engineering focus toward higher-order design problems.",
+      explanation: "The passage asserts automation frees mental capacity for architectural design."
     }
   ],
   'Pseudo Code': [
     {
       id: "pseudo_1",
-      topic: "Recursive Function Trace",
-      question: "What is the exact return value of compute(4)?",
+      topic: "Recursive Call Tracing",
+      question: "What is the return value of compute(4)?",
       codeSnippet: "function compute(n) {\n    if (n <= 1) return 1;\n    return n * compute(n - 1) + 2;\n}",
       difficulty: "medium",
-      options: ["26", "32", "28", "24"],
+      marks: 1,
+      options: ["26", "58", "28", "24"],
+      correctIndex: 1,
+      correctAnswer: "58",
+      explanation: "compute(1)=1, compute(2)=2*1+2=4, compute(3)=3*4+2=14, compute(4)=4*14+2=58."
     },
     {
       id: "pseudo_2",
-      topic: "Bitwise Shift Operations",
+      topic: "Bitwise Shift and XOR",
       question: "What is the final value of x after execution?",
       codeSnippet: "int a = 5, b = 3;\nint x = (a << 2) ^ (b >> 1);",
       difficulty: "easy",
+      marks: 1,
       options: ["21", "20", "19", "22"],
+      correctIndex: 0,
+      correctAnswer: "21",
+      explanation: "a << 2 = 5 * 4 = 20. b >> 1 = 1. 20 ^ 1 = 21."
     },
     {
       id: "pseudo_3",
-      topic: "Nested Loop Counter",
+      topic: "Nested Triangular Loop",
       question: "How many times does count get incremented in the code below?",
       codeSnippet: "int count = 0;\nfor (int i = 1; i <= 4; i++) {\n    for (int j = i; j <= 4; j++) {\n        count++;\n    }\n}",
       difficulty: "easy",
+      marks: 1,
       options: ["10", "16", "8", "12"],
+      correctIndex: 0,
+      correctAnswer: "10",
+      explanation: "i=1: 4 times, i=2: 3 times, i=3: 2 times, i=4: 1 time. Total = 4 + 3 + 2 + 1 = 10."
     },
     {
       id: "pseudo_4",
@@ -308,7 +451,11 @@ const INITIAL_QUESTIONS_BANK = {
       question: "What is the printed output of the code below?",
       codeSnippet: "int val = 47;\nint ans = 0;\nwhile (val > 0) {\n    ans = ans + (val % 10);\n    val = val / 10;\n}\nprint(ans);",
       difficulty: "easy",
+      marks: 1,
       options: ["11", "47", "7", "4"],
+      correctIndex: 0,
+      correctAnswer: "11",
+      explanation: "Sum of digits of 47: 7 + 4 = 11."
     },
     {
       id: "pseudo_5",
@@ -316,7 +463,11 @@ const INITIAL_QUESTIONS_BANK = {
       question: "What will be printed after the pointer arithmetic operations?",
       codeSnippet: "int arr[] = {10, 20, 30, 40, 50};\nint *p = arr;\np = p + 2;\nprint(*p + *(p + 1));",
       difficulty: "medium",
+      marks: 1,
       options: ["70", "50", "60", "90"],
+      correctIndex: 0,
+      correctAnswer: "70",
+      explanation: "p points to arr[2] = 30. *(p+1) is arr[3] = 40. Sum = 30 + 40 = 70."
     },
     {
       id: "pseudo_6",
@@ -324,7 +475,11 @@ const INITIAL_QUESTIONS_BANK = {
       question: "What is the computed value of res?",
       codeSnippet: "int a = 10, b = 20, c = 15;\nint res = (a > b) ? ((a > c) ? a : c) : ((b > c) ? b : c);",
       difficulty: "easy",
+      marks: 1,
       options: ["20", "15", "10", "0"],
+      correctIndex: 0,
+      correctAnswer: "20",
+      explanation: "Finds the maximum among a, b, c: Max(10, 20, 15) = 20."
     },
     {
       id: "pseudo_7",
@@ -332,7 +487,11 @@ const INITIAL_QUESTIONS_BANK = {
       question: "What does the function call evaluate('d', 'a') return?",
       codeSnippet: "function evaluate(char c1, char c2) {\n    return (c1 - c2) * 2;\n}",
       difficulty: "easy",
+      marks: 1,
       options: ["6", "3", "8", "4"],
+      correctIndex: 0,
+      correctAnswer: "6",
+      explanation: "'d' - 'a' = 100 - 97 = 3. 3 * 2 = 6."
     },
     {
       id: "pseudo_8",
@@ -340,7 +499,11 @@ const INITIAL_QUESTIONS_BANK = {
       question: "What are the final values of a and b after evaluating the condition?",
       codeSnippet: "int a = 5, b = 10;\nif (a > 2 || ++b > 10) {\n    a = a + 2;\n}\nprint(a, b);",
       difficulty: "medium",
+      marks: 1,
       options: ["7, 10", "7, 11", "5, 10", "5, 11"],
+      correctIndex: 0,
+      correctAnswer: "7, 10",
+      explanation: "Since a > 2 is TRUE, the OR condition short-circuits. ++b is never run. a becomes 7, b remains 10."
     },
     {
       id: "pseudo_9",
@@ -348,7 +511,11 @@ const INITIAL_QUESTIONS_BANK = {
       question: "What is the return value of mystery(3, 1)?",
       codeSnippet: "function mystery(n, acc) {\n    if (n == 0) return acc;\n    return mystery(n - 1, acc * 3);\n}",
       difficulty: "medium",
+      marks: 1,
       options: ["27", "9", "81", "3"],
+      correctIndex: 0,
+      correctAnswer: "27",
+      explanation: "mystery(3,1) -> mystery(2,3) -> mystery(1,9) -> mystery(0,27) -> returns 27."
     },
     {
       id: "pseudo_10",
@@ -356,44 +523,52 @@ const INITIAL_QUESTIONS_BANK = {
       question: "Which condition correctly checks if the 3rd bit (index 2) of integer num is SET?",
       codeSnippet: "// Select the correct bitwise conditional expression",
       difficulty: "medium",
+      marks: 1,
       options: ["(num & (1 << 2)) != 0", "(num | (1 << 2)) == 0", "(num ^ (1 << 2)) == 0", "(num >> 2) == 0"],
+      correctIndex: 0,
+      correctAnswer: "(num & (1 << 2)) != 0",
+      explanation: "(1 << 2) gives mask 4 (00000100). Bitwise AND checks if the 2nd index bit is set."
     }
   ],
   Coding: [
     {
       id: "c1",
-      title: "Two Sum Optimal Linear Traversal",
-      topic: "Arrays & Hash Maps",
-      difficulty: "medium",
-      marks: 1,
-      description: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target in O(n) linear time complexity.",
-      starterCode: {
-        java: "import java.util.*;\n\nclass Solution {\n    public int[] twoSum(int[] nums, int target) {\n        Map<Integer, Integer> map = new HashMap<>();\n        for (int i = 0; i < nums.length; i++) {\n            int comp = target - nums[i];\n            if (map.containsKey(comp)) {\n                return new int[] { map.get(comp), i };\n            }\n            map.put(nums[i], i);\n        }\n        return new int[] {};\n    }\n}",
-        python: "def twoSum(nums: list[int], target: int) -> list[int]:\n    seen = {}\n    for i, num in enumerate(nums):\n        comp = target - num\n        if comp in seen:\n            return [seen[comp], i]\n        seen[num] = i\n    return []",
-        cpp: "#include <vector>\n#include <unordered_map>\nusing namespace std;\n\nclass Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        unordered_map<int, int> map;\n        for (int i = 0; i < nums.size(); i++) {\n            int comp = target - nums[i];\n            if (map.find(comp) != map.end()) return {map[comp], i};\n            map[nums[i]] = i;\n        }\n        return {};\n    }\n};",
-        javascript: "function twoSum(nums, target) {\n  const map = new Map();\n  for (let i = 0; i < nums.length; i++) {\n    const comp = target - nums[i];\n    if (map.has(comp)) return [map.get(comp), i];\n    map.set(nums[i], i);\n  }\n  return [];\n}"
-      },
+      title: "Array Target Pair Search",
+      topic: "Arrays & Hash Table",
+      difficulty: "Medium",
+      marks: 10,
+      description: "Given an array of integers nums and an integer target, write a program that reads the space-separated integers on the first line and the target integer on the second line, and prints the two 0-indexed positions of the numbers that add up to target.",
+      inputFormat: "Line 1: Space-separated integers representing array nums\nLine 2: Single integer target",
+      outputFormat: "Two space-separated indices (e.g. 0 1)",
+      constraints: ["2 <= nums.length <= 10^4", "-10^9 <= nums[i] <= 10^9", "Only one valid answer exists"],
+      examples: [
+        { input: "2 7 11 15\n9", output: "0 1", explanation: "nums[0] + nums[1] = 2 + 7 = 9" },
+        { input: "3 2 4\n6", output: "1 2", explanation: "nums[1] + nums[2] = 2 + 4 = 6" }
+      ],
+      starterCode: EMPTY_STARTER_TEMPLATES,
       testCases: [
-        { input: "nums = [2,7,11,15], target = 9", output: "[0, 1]" },
-        { input: "nums = [3,2,4], target = 6", output: "[1, 2]" }
+        { input: "2 7 11 15\n9", output: "0 1", isHidden: false },
+        { input: "3 2 4\n6", output: "1 2", isHidden: false }
       ]
     },
     {
       id: "c2",
-      title: "Longest Substring Without Repeating Characters",
-      topic: "Sliding Window & Hash Sets",
-      difficulty: "hard",
-      marks: 1,
-      description: "Given a string s, find the length of the longest substring without duplicate characters using a sliding window and set technique.",
-      starterCode: {
-        java: "import java.util.*;\n\nclass Solution {\n    public int lengthOfLongestSubstring(String s) {\n        Set<Character> set = new HashSet<>();\n        int maxLen = 0, left = 0;\n        for (int right = 0; right < s.length(); right++) {\n            while (set.contains(s.charAt(right))) {\n                set.remove(s.charAt(left++));\n            }\n            set.add(s.charAt(right));\n            maxLen = Math.max(maxLen, right - left + 1);\n        }\n        return maxLen;\n    }\n}",
-        python: "def lengthOfLongestSubstring(s: str) -> int:\n    char_set = set()\n    left = 0\n    res = 0\n    for right in range(len(s)):\n        while s[right] in char_set:\n            char_set.remove(s[left])\n            left += 1\n        char_set.add(s[right])\n        res = max(res, right - left + 1)\n    return res",
-        cpp: "#include <string>\n#include <unordered_set>\nusing namespace std;\n\nclass Solution {\npublic:\n    int lengthOfLongestSubstring(string s) {\n        unordered_set<char> set;\n        int maxLen = 0, left = 0;\n        for (int right = 0; right < s.length(); right++) {\n            while (set.count(s[right])) set.erase(s[left++]);\n            set.insert(s[right]);\n            maxLen = max(maxLen, right - left + 1);\n        }\n        return maxLen;\n    }\n};",
-        javascript: "function lengthOfLongestSubstring(s) {\n  let set = new Set(), max = 0, left = 0;\n  for (let right = 0; right < s.length; right++) {\n    while (set.has(s[right])) set.delete(s[left++]);\n    set.add(s[right]);\n    max = Math.max(max, right - left + 1);\n  }\n  return max;\n}"
-      },
+      title: "Longest Unique Substring Span",
+      topic: "Sliding Window & Hash Set",
+      difficulty: "Hard",
+      marks: 10,
+      description: "Given a string s, find and print the length of the longest substring without duplicate characters.",
+      inputFormat: "Line 1: Single string s",
+      outputFormat: "Single integer length",
+      constraints: ["0 <= s.length <= 5 * 10^4", "s consists of English letters, digits, symbols and spaces"],
+      examples: [
+        { input: "abcabcbb", output: "3", explanation: "'abc' has length 3" },
+        { input: "bbbbb", output: "1", explanation: "'b' has length 1" }
+      ],
+      starterCode: EMPTY_STARTER_TEMPLATES,
       testCases: [
-        { input: "s = 'abcabcbb'", output: "3" },
-        { input: "s = 'bbbbb'", output: "1" }
+        { input: "abcabcbb", output: "3", isHidden: false },
+        { input: "bbbbb", output: "1", isHidden: false }
       ]
     }
   ]
@@ -406,18 +581,19 @@ export const SecureExamMode = () => {
   const [assessment, setAssessment] = useState({
     title: 'Full Pattern Mock Assessment',
     description: 'Comprehensive 5-Section Placement Readiness Benchmark',
-    durationMinutes: 60,
+    durationMinutes: 80,
     totalQuestions: 42,
+    totalMarks: 60,
     maxAttempts: 3,
   });
   const [loading, setLoading] = useState(true);
-  const [viewTab, setViewTab] = useState('overview'); // 'overview' | 'attempt' | 'history' | 'faculty'
+  const [viewTab, setViewTab] = useState('overview'); // 'overview' | 'attempt' | 'review' | 'history' | 'faculty'
   const [examState, setExamState] = useState('PORTAL'); // 'PORTAL' | 'SYSTEM_CHECK' | 'IN_PROGRESS' | 'PAUSED' | 'SUBMITTED'
 
   // Dynamic 42-Question Repository loaded from backend
   const [questionsBank, setQuestionsBank] = useState(INITIAL_QUESTIONS_BANK);
 
-  // Pre-Check 8-Step Verification
+  // Pre-Check Verification
   const [cameraAllowed, setCameraAllowed] = useState(false);
   const [screenShareAllowed, setScreenShareAllowed] = useState(false);
   const [fullscreenActive, setFullscreenActive] = useState(false);
@@ -427,7 +603,7 @@ export const SecureExamMode = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pingLatency, setPingLatency] = useState(22);
   const [autoSaveStatus, setAutoSaveStatus] = useState('Synced');
-  const [timeLeft, setTimeLeft] = useState(3600); // 60 mins = 3600s
+  const [timeLeft, setTimeLeft] = useState(4800); // 80 mins = 4800s
   const [activeSectionName, setActiveSectionName] = useState('Aptitude');
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -435,13 +611,17 @@ export const SecureExamMode = () => {
   const [codingActiveIndex, setCodingActiveIndex] = useState(0);
   const [codingLanguage, setCodingLanguage] = useState('java');
   const [codingDrafts, setCodingDrafts] = useState({
-    c1: INITIAL_QUESTIONS_BANK.Coding[0].starterCode.java,
-    c2: INITIAL_QUESTIONS_BANK.Coding[1].starterCode.java,
+    c1: EMPTY_STARTER_TEMPLATES.java,
+    c2: EMPTY_STARTER_TEMPLATES.java,
+  });
+  const [codingLanguages, setCodingLanguages] = useState({
+    c1: 'java',
+    c2: 'java',
   });
   const [codeConsoleOutput, setCodeConsoleOutput] = useState('');
   const [isRunningCode, setIsRunningCode] = useState(false);
 
-  // Security Counters & Warnings (Real telemetry, never auto-fail)
+  // Security Counters & Warnings
   const [warningCount, setWarningCount] = useState(0);
   const [devToolsWarningModal, setDevToolsWarningModal] = useState(false);
   const [screenSharePauseModal, setScreenSharePauseModal] = useState(false);
@@ -457,6 +637,7 @@ export const SecureExamMode = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [attemptHistory, setAttemptHistory] = useState([]);
   const [examResult, setExamResult] = useState(null);
+  const [reviewFilter, setReviewFilter] = useState('All');
 
   const videoRef = useRef(null);
   const pipVideoRef = useRef(null);
@@ -530,7 +711,7 @@ export const SecureExamMode = () => {
     return () => clearInterval(autoSaveTimer);
   }, [examState, answers, codingDrafts, timeLeft, assessment, attemptNumber]);
 
-  // DevTools Detection Engine (F12, Ctrl+Shift+I, Inspect, Dimension delta)
+  // DevTools Detection Engine
   useEffect(() => {
     if (examState !== 'IN_PROGRESS') return;
 
@@ -598,17 +779,24 @@ export const SecureExamMode = () => {
           eventType: 'TAB_SWITCH',
           severity: 'HIGH',
           durationSeconds: durationSec,
-          details: `Candidate switched tab / lost window focus for ${durationSec} seconds.`,
+          details: `Candidate switched away from exam tab for ${durationSec} seconds.`,
         }).catch(() => {});
-        setSecurityModalText(`Tab switch detected! Window was unfocused for ${durationSec}s.`);
       }
     };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [examState, assessment, attemptNumber]);
+
+  // Fullscreen Enforcer Listener
+  useEffect(() => {
+    if (examState !== 'IN_PROGRESS') return;
 
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
         setFullscreenActive(false);
         setWarningCount((prev) => prev + 1);
-        setSecurityModalText('Fullscreen mode required! Please return to fullscreen immediately.');
+        setSecurityModalText('Fullscreen mode was exited. Fullscreen is mandatory to maintain exam integrity.');
         examProctorApi.logEvent({
           assessmentId: assessment?._id || 'full-pattern-test',
           attemptNumber,
@@ -621,18 +809,13 @@ export const SecureExamMode = () => {
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibility);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, [examState, assessment, attemptNumber]);
 
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
-  }, [examState, attemptNumber, assessment]);
-
-  // Countdown Timer & Auto-Submit on Zero
+  // Exam Countdown Timer
   useEffect(() => {
-    if (examState !== 'IN_PROGRESS') return;
+    if (examState !== 'IN_PROGRESS' || timeLeft <= 0) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -646,111 +829,115 @@ export const SecureExamMode = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [examState]);
+  }, [examState, timeLeft]);
 
-  // Fetch real database history on mount
+  // Load Past History and Latest Submissions from Database
   useEffect(() => {
-    fetchHistoryData();
+    const loadSessionData = async () => {
+      try {
+        setLoading(true);
+        const res = await examProctorApi.getHistory(id || 'full-pattern-test');
+        if (res.data?.success) {
+          if (res.data.attempts) {
+            setAttemptHistory(res.data.attempts);
+            setAttemptNumber(res.data.attempts.length + 1);
+            setRemainingAttempts(Math.max(0, 3 - res.data.attempts.length));
+          }
+          if (res.data.latestResult) {
+            const sub = res.data.latestResult;
+            setExamResult({
+              examTitle: "Full Pattern Mock Assessment",
+              completedAt: new Date(sub.completedAt || sub.createdAt).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              attemptNumber: sub.attemptNumber,
+              maxAttempts: 3,
+              timeSpentFormatted: `${Math.floor((sub.timeSpentSeconds || 3100) / 60)}m ${(sub.timeSpentSeconds || 3100) % 60}s`,
+              timeSpentSeconds: sub.timeSpentSeconds || 3100,
+              totalQuestions: 42,
+              score: sub.score,
+              maxScore: sub.maxScore || 60,
+              percentage: sub.percentage,
+              passed: sub.passed,
+              integrityScore: sub.integrityScore,
+              auditStatus: sub.reviewStatus || "Verified Clean",
+              ipAddress: "Masked",
+              tabSwitches: sub.tabSwitches || 0,
+              devToolsCount: sub.devToolsCount || 0,
+              cameraInterruptions: sub.cameraInterruptionCount || 0,
+              screenShareInterruptions: 0,
+              networkInterruptions: sub.networkInterruptionCount || 0,
+              sectionScores: sub.sectionScores || {},
+              aiRecommendations: sub.aiRecommendations || {},
+              reviewData: sub.reviewData || [],
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load past exam history:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSessionData();
   }, [id]);
 
-  const fetchHistoryData = async () => {
-    try {
-      const res = await examProctorApi.getHistory('full-pattern-test');
-      if (res?.data?.attempts) {
-        setAttemptHistory(res.data.attempts);
-        setAttemptNumber(Math.min(3, res.data.attempts.length + 1));
-        setRemainingAttempts(Math.max(0, 3 - res.data.attempts.length));
-        if (res.data.latestResult) {
-          const lat = res.data.latestResult;
-          setExamResult({
-            examTitle: 'Full Pattern Mock Assessment',
-            completedAt: new Date(lat.completedAt || lat.createdAt).toLocaleString('en-GB', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            attemptNumber: lat.attemptNumber,
-            timeSpentFormatted: formatTimer(lat.timeSpentSeconds || 3100),
-            score: lat.score,
-            maxScore: lat.maxScore,
-            percentage: lat.percentage,
-            integrityScore: lat.integrityScore,
-            auditStatus: lat.reviewStatus || 'Verified Clean',
-            ipAddress: 'Masked',
-            tabSwitches: lat.tabSwitches || 0,
-            devToolsCount: lat.devToolsCount || 0,
-            cameraInterruptions: lat.cameraInterruptionCount || 0,
-            screenShareInterruptions: 0,
-            networkInterruptions: lat.networkInterruptionCount || 0,
-            sectionScores: lat.sectionScores || {},
-            aiRecommendations: lat.aiRecommendations || {
-              strengths: ['Quantitative Fundamentals'],
-              weaknesses: ['Advanced Coding Speed'],
-              actionableTips: ['Review standard algorithmic patterns.'],
-              verdict: 'Evaluation Recorded in Database',
-            },
-            emailSent: true,
-            emailMessage: 'Scorecard dispatched to your registered email address.',
-          });
-        }
-      }
-    } catch (e) {
-      console.warn('History fetch note:', e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Step 1: Camera Access
+  // Request Camera Hardware
   const requestCameraAccess = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: 'user' },
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
         audio: false,
       });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      if (pipVideoRef.current) pipVideoRef.current.srcObject = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
       setCameraAllowed(true);
       setFaceDetectionText('Face Detected');
-    } catch {
-      alert('Camera access is mandatory for examination proctoring.');
+      return true;
+    } catch (err) {
       setCameraAllowed(false);
-      setCameraDropCount((prev) => prev + 1);
+      setFaceDetectionText('Camera Access Denied');
+      return false;
     }
   };
 
-  // Step 3: Screen Share Access (Entire Screen)
+  // Request Desktop Screen Share
   const requestScreenShareAccess = async () => {
     try {
-      if (navigator.mediaDevices?.getDisplayMedia) {
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { displaySurface: 'monitor' },
-        });
-        screenStreamRef.current = stream;
-        setScreenShareAllowed(true);
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: 'monitor', cursor: 'always' },
+        audio: false,
+      });
+      screenStreamRef.current = stream;
+      setScreenShareAllowed(true);
 
-        stream.getVideoTracks()[0].onended = () => {
-          setScreenShareAllowed(false);
-          setExamState('PAUSED');
-          setScreenSharePauseModal(true);
-          examProctorApi.logEvent({
-            assessmentId: assessment?._id || 'full-pattern-test',
-            attemptNumber,
-            eventType: 'SCREEN_SHARE_STOPPED',
-            severity: 'CRITICAL',
-            details: 'Mandatory screen sharing was terminated by user. Examination paused.',
-          }).catch(() => {});
-        };
-      }
-    } catch {
-      alert('Mandatory: You must share your entire screen to enter the examination.');
+      stream.getVideoTracks()[0].onended = () => {
+        setScreenShareAllowed(false);
+        setScreenSharePauseModal(true);
+        setExamState('PAUSED');
+        setWarningCount((prev) => prev + 1);
+        examProctorApi.logEvent({
+          assessmentId: assessment?._id || 'full-pattern-test',
+          attemptNumber,
+          eventType: 'SCREEN_SHARE_STOPPED',
+          severity: 'CRITICAL',
+          details: 'Candidate stopped sharing entire desktop screen.',
+        }).catch(() => {});
+      };
+      return true;
+    } catch (err) {
       setScreenShareAllowed(false);
+      return false;
     }
   };
 
-  // Fullscreen Entry
+  // Enter Fullscreen
   const enterFullscreenMode = () => {
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
@@ -758,48 +945,30 @@ export const SecureExamMode = () => {
     }
   };
 
-  // Start Assessment: Calls Backend Groq Question Engine (or resumes active session)
-  const handleLaunchAssessment = async () => {
-    if (!cameraAllowed || !screenShareAllowed) {
-      alert('Please complete both Camera and Screen Sharing checks first.');
-      return;
-    }
-
-    enterFullscreenMode();
+  // Launch Examination: Calls Backend Groq Question Generation
+  const handleStartExam = async () => {
     try {
       const res = await examProctorApi.startSession({
         assessmentId: assessment?._id || 'full-pattern-test',
-        screenShareGranted: true,
+        screenShareGranted: screenShareAllowed,
         consentAccepted: true,
       });
 
-      if (res.data.success) {
-        setAttemptNumber(res.data.attemptNumber);
-        setRemainingAttempts(res.data.remainingAttempts);
-        if (res.data.timeLeft !== undefined) {
-          setTimeLeft(res.data.timeLeft);
-        }
-        if (res.data.savedAnswers) {
-          setAnswers(res.data.savedAnswers);
-        }
-        if (res.data.dynamicExam?.sections) {
-          const dynamicSections = res.data.dynamicExam.sections;
-          setQuestionsBank({
-            Aptitude: dynamicSections.Aptitude || dynamicSections.aptitude || INITIAL_QUESTIONS_BANK.Aptitude,
-            Reasoning: dynamicSections.Reasoning || dynamicSections.reasoning || INITIAL_QUESTIONS_BANK.Reasoning,
-            Verbal: dynamicSections.Verbal || dynamicSections.verbal || INITIAL_QUESTIONS_BANK.Verbal,
-            'Pseudo Code': dynamicSections['Pseudo Code'] || dynamicSections.pseudoCode || INITIAL_QUESTIONS_BANK['Pseudo Code'],
-            Coding: dynamicSections.Coding || dynamicSections.coding || INITIAL_QUESTIONS_BANK.Coding,
-          });
+      if (res?.data?.success) {
+        const data = res.data;
+        if (data.dynamicExam && data.dynamicExam.sections) {
+          setQuestionsBank(data.dynamicExam.sections);
+          setTimeLeft(data.timeLeft || 4800);
+          setAttemptNumber(data.attemptNumber || attemptNumber);
+          setRemainingAttempts(data.remainingAttempts !== undefined ? data.remainingAttempts : remainingAttempts);
 
-          // Set coding drafts
-          const codingProbs = dynamicSections.Coding || dynamicSections.coding || INITIAL_QUESTIONS_BANK.Coding;
-          if (codingProbs.length > 0) {
-            const initialDrafts = res.data.savedCodingAnswers || {};
-            codingProbs.forEach((cp) => {
-              if (!initialDrafts[cp.id]) {
-                initialDrafts[cp.id] = cp.starterCode?.java || INITIAL_QUESTIONS_BANK.Coding[0].starterCode.java;
-              }
+          if (data.savedAnswers) setAnswers(data.savedAnswers);
+          if (data.savedCodingAnswers && Object.keys(data.savedCodingAnswers).length > 0) {
+            setCodingDrafts(data.savedCodingAnswers);
+          } else {
+            const initialDrafts = {};
+            (data.dynamicExam.sections.Coding || []).forEach((cp) => {
+              initialDrafts[cp.id] = EMPTY_STARTER_TEMPLATES.java;
             });
             setCodingDrafts(initialDrafts);
           }
@@ -821,13 +990,44 @@ export const SecureExamMode = () => {
     }, 400);
   };
 
-  // Coding Runner
-  const handleRunCodeTestCases = () => {
+  // Real Sandboxed Code Execution inside Examination
+  const handleRunCodeTestCases = async () => {
+    if (isRunningCode) return;
     setIsRunningCode(true);
-    const activeProb = (questionsBank.Coding && questionsBank.Coding[codingActiveIndex]) || INITIAL_QUESTIONS_BANK.Coding[0];
-    const tc1 = activeProb.testCases?.[0] || { input: 'Default input', output: 'Expected output' };
-    setCodeConsoleOutput(`[Compiler]: Executing Solution.${codingLanguage === 'java' ? 'java' : codingLanguage === 'python' ? 'py' : 'cpp'}...\n✓ Test Case 1: Input: ${tc1.input} -> Output: ${tc1.output} (Passed - 1ms)\n✓ Test Case 2: Validation Check (Passed - 2ms)\n\nAll Test Cases Verified! (Execution: 24ms, Memory: 38.2MB)`);
-    setTimeout(() => setIsRunningCode(false), 500);
+    const activeProb = (questionsBank.Coding && questionsBank.Coding[codingActiveIndex]) || (INITIAL_QUESTIONS_BANK.Coding && INITIAL_QUESTIONS_BANK.Coding[codingActiveIndex]) || { id: 'c1' };
+    const currentCode = codingDrafts[activeProb.id] || EMPTY_STARTER_TEMPLATES[codingLanguage] || '';
+    const sampleInput = activeProb.testCases?.[0]?.input || activeProb.examples?.[0]?.input || '';
+    const expectedOutput = activeProb.testCases?.[0]?.output || activeProb.examples?.[0]?.output || '';
+
+    setCodeConsoleOutput(`[Compiler]: Compiling and running against sample test case...\nInput:\n${sampleInput}\n`);
+
+    try {
+      const res = await codeApi.run({
+        language: codingLanguage,
+        code: currentCode,
+        stdin: sampleInput,
+      });
+
+      const data = res.data;
+      if (data.compileError) {
+        setCodeConsoleOutput(`[Compilation Error]:\n${data.compileError}`);
+      } else if (data.stderr && data.status === 'Runtime Error') {
+        setCodeConsoleOutput(`[Runtime Error]:\n${data.stderr}`);
+      } else {
+        const actualOutput = (data.stdout || '').trim();
+        const isMatch = actualOutput === expectedOutput.trim();
+        setCodeConsoleOutput(
+          `[Program Output]:\n${actualOutput || '(No output)'}\n\n` +
+          `Expected Output:\n${expectedOutput}\n\n` +
+          `Test Case 1 Status: ${isMatch ? '✓ PASSED' : '✗ FAILED'}\n` +
+          `Execution Time: ${data.executionTimeMs || 14}ms  Memory: ${data.memoryMb || 16.2}MB`
+        );
+      }
+    } catch (err) {
+      setCodeConsoleOutput(`[Execution Error]: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsRunningCode(false);
+    }
   };
 
   // Submit Exam: Evaluates Real Answers on Backend Database
@@ -841,6 +1041,7 @@ export const SecureExamMode = () => {
         attemptNumber,
         answers,
         codingAnswers: codingDrafts,
+        codingLanguages,
         screenShareGranted: screenShareAllowed,
         tabSwitches: tabSwitchCount,
         devToolsCount,
@@ -903,7 +1104,7 @@ export const SecureExamMode = () => {
       <div className="fixed inset-0 z-[9999] bg-slate-950 text-slate-100 flex flex-col select-none font-sans overflow-y-auto">
         {/* Sticky Top Status Header */}
         <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shadow-2xl">
-          {/* Left: Test Title (No Date in Title) */}
+          {/* Left: Test Title */}
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg">
               <Shield className="w-5 h-5" />
@@ -974,7 +1175,7 @@ export const SecureExamMode = () => {
               size="md"
               onClick={handleFinalSubmit}
               disabled={isSubmitting}
-              className="bg-emerald-600 hover:bg-emerald-500 font-bold border-0 shadow-lg px-5 py-2.5"
+              className="bg-emerald-600 hover:bg-emerald-500 font-bold border-0 shadow-lg px-5 py-2.5 cursor-pointer"
             >
               {isSubmitting ? 'Submitting...' : 'Finish Test'}
             </Button>
@@ -998,304 +1199,392 @@ export const SecureExamMode = () => {
             >
               <span>{sec.name}</span>
               <span className="px-2 py-0.5 rounded-md bg-black/40 text-[11px] font-mono">
-                {sec.questions} Qs
+                {sec.questions} Qs &bull; {sec.marks} M
               </span>
             </button>
           ))}
         </div>
 
-        {/* Examination Workspace */}
-        <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl mx-auto w-full">
-          {/* Left / Center: Question or Coding IDE */}
-          <div className="lg:col-span-3 space-y-6">
-            {activeSectionName === 'Coding' ? (
-              /* Coding IDE Section */
-              <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                  <div className="flex items-center gap-2">
-                    {(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding).map((prob, pIdx) => (
-                      <button
-                        key={prob.id || pIdx}
-                        onClick={() => setCodingActiveIndex(pIdx)}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                          codingActiveIndex === pIdx ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                        }`}
-                      >
-                        Problem {pIdx + 1} ({prob.title ? prob.title.slice(0, 16) : 'Challenge'}...)
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={codingLanguage}
-                      onChange={(e) => {
-                        const newLang = e.target.value;
-                        setCodingLanguage(newLang);
-                        const curProb = (questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)[codingActiveIndex];
-                        if (curProb) {
-                          setCodingDrafts({
-                            ...codingDrafts,
-                            [curProb.id]: curProb.starterCode?.[newLang] || '',
-                          });
-                        }
-                      }}
-                      className="bg-slate-950 border border-slate-700 text-xs rounded-xl px-3 py-1.5 text-white font-mono outline-none"
-                    >
-                      <option value="java">Java (OpenJDK 21)</option>
-                      <option value="python">Python 3.12</option>
-                      <option value="cpp">C++ (GCC 13)</option>
-                      <option value="javascript">JavaScript (Node 20)</option>
-                    </select>
-
-                    <Button variant="primary" size="sm" icon={Play} onClick={handleRunCodeTestCases} loading={isRunningCode} className="bg-indigo-600 hover:bg-indigo-500">
-                      Run Test Cases
-                    </Button>
-                  </div>
-                </div>
-
-                {(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)?.[codingActiveIndex] && (
-                  <div className="text-xs text-slate-300 bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-white text-sm">{(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)[codingActiveIndex].title}</h3>
-                      <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-mono text-[11px] font-bold">
-                        {(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)[codingActiveIndex].difficulty} &bull; 1 Mark
-                      </span>
-                    </div>
-                    <p>{(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)[codingActiveIndex].description}</p>
-                  </div>
-                )}
-
-                {/* Editor */}
-                <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-950 shadow-inner">
-                  <div className="bg-slate-900 px-4 py-2 text-xs font-mono text-slate-400 flex items-center justify-between border-b border-slate-800">
-                    <span>Solution.{codingLanguage === 'java' ? 'java' : codingLanguage === 'python' ? 'py' : codingLanguage === 'cpp' ? 'cpp' : 'js'}</span>
-                    <span>UTF-8 &bull; Strict Proctoring</span>
-                  </div>
-                  <textarea
-                    rows={12}
-                    value={
-                      (questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)?.[codingActiveIndex]
-                        ? codingDrafts[(questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)[codingActiveIndex].id] || ''
-                        : ''
-                    }
-                    onChange={(e) => {
-                      const curProb = (questionsBank.Coding || INITIAL_QUESTIONS_BANK.Coding)?.[codingActiveIndex];
-                      if (curProb) {
-                        setCodingDrafts({ ...codingDrafts, [curProb.id]: e.target.value });
-                      }
-                    }}
-                    className="w-full bg-slate-950 text-emerald-400 font-mono text-xs p-4 outline-none resize-none leading-relaxed"
-                    spellCheck={false}
-                  />
-                </div>
-
-                {codeConsoleOutput && (
-                  <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Execution Output:</span>
-                    <pre className="text-emerald-400 whitespace-pre-wrap">{codeConsoleOutput}</pre>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Dynamic 10 Distinct Questions for MCQ & Pseudo Code Sections */
-              <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-6">
+        {/* ===================================================================== */}
+        {/* SECTION A: MCQ QUESTION RENDERING (APTITUDE / REASONING / VERBAL / PSEUDO CODE) */}
+        {/* ===================================================================== */}
+        {activeSectionName !== 'Coding' && (
+          <div className="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left: Question Box */}
+            <div className="lg:col-span-8 bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                  <span className="text-xs uppercase font-bold text-indigo-400 tracking-wider">
-                    {activeSectionName} Section &bull; Question {currentQIndex + 1} of {currentSectionQuestions.length || 10}
-                  </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-slate-300 font-bold">+1.00 Mark</span>
-                    <span className="text-xs font-mono text-slate-500">0.00 Negative</span>
+                    <span className="px-3 py-1 rounded-xl bg-indigo-500/20 text-indigo-300 font-mono font-bold text-xs">
+                      Question {currentQIndex + 1} of {currentSectionQuestions.length}
+                    </span>
+                    <span className="text-xs text-slate-400">&bull; {currentQuestion.topic || activeSectionName}</span>
                   </div>
+                  <span className="text-xs font-mono font-bold text-emerald-400">+1.0 Mark</span>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-[11px] font-mono text-indigo-300 border border-slate-700 font-bold">
-                      Topic: {currentQuestion.topic || currentQuestion.title || `${activeSectionName} Topic`}
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-[10px] font-mono text-slate-400 capitalize">
-                      {currentQuestion.difficulty || "medium"}
-                    </span>
+                {/* Question Statement */}
+                <h3 className="text-base sm:text-lg font-bold text-white leading-relaxed">
+                  {currentQuestion.question || currentQuestion.description}
+                </h3>
+
+                {/* Optional Code Snippet (e.g. for Pseudo Code section) */}
+                {currentQuestion.codeSnippet && (
+                  <div className="p-4 rounded-2xl bg-black/80 border border-slate-800 font-mono text-xs text-indigo-300 whitespace-pre-wrap leading-relaxed shadow-inner">
+                    {currentQuestion.codeSnippet}
                   </div>
+                )}
 
-                  <h3 className="text-base sm:text-lg font-bold text-white leading-relaxed">
-                    {currentQuestion.question || currentQuestion.description}
-                  </h3>
-
-                  {currentQuestion.codeSnippet && (
-                    <div className="p-4 rounded-2xl bg-slate-950 font-mono text-xs text-indigo-300 border border-slate-800">
-                      <pre className="whitespace-pre-wrap font-mono">{currentQuestion.codeSnippet}</pre>
-                    </div>
-                  )}
-                </div>
-
-                {/* Option Cards (10 Distinct per Question Index) */}
+                {/* MCQ Options */}
                 <div className="space-y-3 pt-2">
-                  {(currentQuestion.options || []).map((optText, optIdx) => {
-                    const actualText = typeof optText === 'string' ? optText : optText.text;
-                    const isSelected = answers[`${activeSectionName}_${currentQIndex}`] === optIdx;
+                  {(currentQuestion.options || []).map((opt, oIdx) => {
+                    const optText = typeof opt === 'string' ? opt : opt.text || `Option ${oIdx + 1}`;
+                    const currentAnswer = answers[`${activeSectionName}_${currentQIndex}`];
+                    const isSelected = currentAnswer === oIdx;
+
                     return (
-                      <button
-                        key={optIdx}
-                        type="button"
-                        onClick={() => setAnswers({ ...answers, [`${activeSectionName}_${currentQIndex}`]: optIdx })}
-                        className={`w-full p-4 rounded-2xl text-left text-xs sm:text-sm font-medium border transition-all flex items-center justify-between cursor-pointer ${
+                      <div
+                        key={oIdx}
+                        onClick={() => {
+                          setAnswers((prev) => ({
+                            ...prev,
+                            [`${activeSectionName}_${currentQIndex}`]: oIdx,
+                          }));
+                          setAutoSaveStatus('Saving...');
+                        }}
+                        className={`p-4 rounded-2xl border text-xs font-medium cursor-pointer transition flex items-center gap-3.5 ${
                           isSelected
-                            ? 'bg-indigo-600/30 border-indigo-500 text-white ring-2 ring-indigo-500/50 shadow-lg'
-                            : 'bg-slate-950 hover:bg-slate-800/80 border-slate-800 text-slate-200 hover:border-slate-700'
+                            ? 'bg-indigo-600/25 border-indigo-500 text-white font-bold shadow-lg ring-1 ring-indigo-500'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/60 hover:text-white'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <span className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 transition ${
-                            isSelected ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-800 text-slate-300 border border-slate-700'
-                          }`}>
-                            {String.fromCharCode(65 + optIdx)}
-                          </span>
-                          <span>{actualText}</span>
+                        <div className={`w-6 h-6 rounded-full border flex items-center justify-center font-mono text-[11px] font-bold ${
+                          isSelected ? 'bg-indigo-600 border-indigo-400 text-white' : 'border-slate-700 text-slate-400'
+                        }`}>
+                          {String.fromCharCode(65 + oIdx)}
                         </div>
-                        {isSelected && <Check className="w-5 h-5 text-indigo-400 shrink-0" />}
-                      </button>
+                        <span className="flex-1">{optText}</span>
+                      </div>
                     );
                   })}
                 </div>
+              </div>
 
-                {/* Bottom Controls */}
-                <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+              {/* Bottom Question Controls */}
+              <div className="flex items-center justify-between border-t border-slate-800 pt-4 gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={currentQIndex === 0}
+                  onClick={() => setCurrentQIndex((prev) => Math.max(0, prev - 1))}
+                  className="cursor-pointer"
+                >
+                  Previous
+                </Button>
+
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setMarkedForReview({
-                      ...markedForReview,
-                      [`${activeSectionName}_${currentQIndex}`]: !markedForReview[`${activeSectionName}_${currentQIndex}`],
-                    })}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                    onClick={() => {
+                      setMarkedForReview((prev) => ({
+                        ...prev,
+                        [`${activeSectionName}_${currentQIndex}`]: !prev[`${activeSectionName}_${currentQIndex}`],
+                      }));
+                    }}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer ${
                       markedForReview[`${activeSectionName}_${currentQIndex}`]
-                        ? 'bg-purple-500/20 border-purple-500 text-purple-300'
-                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                        : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
                     }`}
                   >
-                    {markedForReview[`${activeSectionName}_${currentQIndex}`] ? '✓ Marked for Review' : 'Mark for Review'}
+                    {markedForReview[`${activeSectionName}_${currentQIndex}`] ? '★ Marked' : 'Mark for Review'}
                   </button>
 
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentQIndex === 0}
-                      onClick={() => setCurrentQIndex((prev) => Math.max(0, prev - 1))}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        if (currentQIndex < (currentSectionQuestions.length - 1)) {
-                          setCurrentQIndex((prev) => prev + 1);
-                        } else {
-                          // Next Section
-                          const curSecIdx = SECTIONS_CONFIG.findIndex((s) => s.name === activeSectionName);
-                          if (curSecIdx < SECTIONS_CONFIG.length - 1) {
-                            setActiveSectionName(SECTIONS_CONFIG[curSecIdx + 1].name);
-                            setCurrentQIndex(0);
-                          }
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      if (currentQIndex < currentSectionQuestions.length - 1) {
+                        setCurrentQIndex((prev) => prev + 1);
+                      } else {
+                        const secIdx = SECTIONS_CONFIG.findIndex((s) => s.name === activeSectionName);
+                        if (secIdx < SECTIONS_CONFIG.length - 1) {
+                          setActiveSectionName(SECTIONS_CONFIG[secIdx + 1].name);
+                          setCurrentQIndex(0);
                         }
-                      }}
-                      className="bg-indigo-600 hover:bg-indigo-500 font-bold"
-                    >
-                      Save &amp; Next
-                    </Button>
-                  </div>
+                      }
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-500 font-bold cursor-pointer"
+                  >
+                    Save &amp; Next
+                  </Button>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Right Column: Question Palette */}
-          <div className="space-y-4">
-            <div className="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-indigo-400" />
-                <span>Question Palette ({activeSectionName})</span>
-              </h4>
+            {/* Right: Question Palette Grid */}
+            <div className="lg:col-span-4 bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-6">
+              <div>
+                <h4 className="text-sm font-bold text-white flex items-center justify-between">
+                  <span>{activeSectionName} Question Palette</span>
+                  <span className="text-xs font-mono text-indigo-400">{currentSectionQuestions.length} Qs</span>
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-1">Navigate between questions at your own pace.</p>
+              </div>
 
-              <div className="grid grid-cols-5 gap-2">
-                {Array.from({ length: activeSectionName === 'Coding' ? 2 : 10 }).map((_, idx) => {
-                  const isAns = answers[`${activeSectionName}_${idx}`] !== undefined;
-                  const isReview = markedForReview[`${activeSectionName}_${idx}`];
-                  const isCurrent = currentQIndex === idx;
+              {/* Grid Buttons */}
+              <div className="grid grid-cols-5 gap-2.5">
+                {currentSectionQuestions.map((_, qIdx) => {
+                  const ansKey = `${activeSectionName}_${qIdx}`;
+                  const isAnswered = answers[ansKey] !== undefined;
+                  const isMarked = markedForReview[ansKey];
+                  const isCurrent = currentQIndex === qIdx;
+
+                  let btnBg = 'bg-slate-950 border-slate-800 text-slate-400';
+                  if (isCurrent) {
+                    btnBg = 'bg-indigo-600 border-indigo-400 text-white font-black shadow-lg scale-105';
+                  } else if (isMarked) {
+                    btnBg = 'bg-amber-500/20 border-amber-500/50 text-amber-300 font-bold';
+                  } else if (isAnswered) {
+                    btnBg = 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 font-bold';
+                  }
 
                   return (
                     <button
-                      key={idx}
-                      onClick={() => setCurrentQIndex(idx)}
-                      className={`h-9 rounded-xl font-mono text-xs font-bold transition flex items-center justify-center cursor-pointer ${
-                        isCurrent
-                          ? 'ring-2 ring-indigo-400 bg-indigo-600 text-white'
-                          : isAns
-                          ? 'bg-emerald-600 text-white'
-                          : isReview
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                      }`}
+                      key={qIdx}
+                      onClick={() => setCurrentQIndex(qIdx)}
+                      className={`h-10 rounded-xl border font-mono text-xs flex items-center justify-center transition cursor-pointer ${btnBg}`}
                     >
-                      {idx + 1}
+                      {qIdx + 1}
                     </button>
                   );
                 })}
               </div>
 
-              <div className="space-y-1.5 pt-3 border-t border-slate-800 text-[10px] text-slate-400">
+              {/* Legend Indicator */}
+              <div className="grid grid-cols-2 gap-2 text-[11px] font-sans border-t border-slate-800 pt-4 text-slate-400">
                 <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-md bg-emerald-600 shrink-0" />
+                  <span className="w-3 h-3 rounded-full bg-emerald-500/40 border border-emerald-500" />
                   <span>Answered</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-md bg-purple-600 shrink-0" />
-                  <span>Marked for Review</span>
+                  <span className="w-3 h-3 rounded-full bg-amber-500/40 border border-amber-500" />
+                  <span>Marked</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-md bg-slate-800 border border-slate-700 shrink-0" />
-                  <span>Not Visited</span>
+                  <span className="w-3 h-3 rounded-full bg-indigo-600 border border-indigo-400" />
+                  <span>Current</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-slate-950 border border-slate-800" />
+                  <span>Unvisited</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Full-Screen DevTools Warning Modal */}
-        {devToolsWarningModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-            <div className="w-full max-w-md bg-slate-900 rounded-3xl border border-red-500/50 p-6 space-y-4 text-center shadow-2xl">
-              <div className="w-14 h-14 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center mx-auto">
-                <ShieldAlert className="w-7 h-7" />
+        {/* ===================================================================== */}
+        {/* SECTION B: CODING COMPILER WORKSPACE (2 PROBLEMS, 20 MARKS) */}
+        {/* ===================================================================== */}
+        {activeSectionName === 'Coding' && (
+          <div className="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left: Coding Problem Description */}
+            <div className="lg:col-span-5 bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-2xl flex flex-col justify-between space-y-4 overflow-y-auto max-h-[720px]">
+              <div className="space-y-4">
+                {/* Problem Selector Switch */}
+                <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+                  {(questionsBank.Coding || []).map((cProb, idx) => (
+                    <button
+                      key={cProb.id}
+                      onClick={() => setCodingActiveIndex(idx)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        codingActiveIndex === idx
+                          ? 'bg-indigo-600 text-white shadow-md'
+                          : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Problem {idx + 1} (10 M)
+                    </button>
+                  ))}
+                </div>
+
+                {/* Problem Title & Details */}
+                {(() => {
+                  const activeProb = (questionsBank.Coding && questionsBank.Coding[codingActiveIndex]) || INITIAL_QUESTIONS_BANK.Coding[0];
+                  return (
+                    <div className="space-y-4">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">
+                          {activeProb.topic || 'Algorithms'} &bull; {activeProb.difficulty || 'Medium'}
+                        </span>
+                        <h3 className="text-lg font-bold text-white mt-1">{activeProb.title}</h3>
+                      </div>
+
+                      <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
+                        {activeProb.description}
+                      </p>
+
+                      {activeProb.inputFormat && (
+                        <div className="space-y-1">
+                          <span className="text-[11px] font-bold text-slate-400 uppercase">Input Format</span>
+                          <p className="text-xs font-mono text-slate-300 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                            {activeProb.inputFormat}
+                          </p>
+                        </div>
+                      )}
+
+                      {activeProb.outputFormat && (
+                        <div className="space-y-1">
+                          <span className="text-[11px] font-bold text-slate-400 uppercase">Output Format</span>
+                          <p className="text-xs font-mono text-slate-300 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                            {activeProb.outputFormat}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Sample Examples */}
+                      <div className="space-y-2">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase">Sample Test Cases</span>
+                        {(activeProb.examples || activeProb.testCases || []).map((tc, tcIdx) => (
+                          <div key={tcIdx} className="p-3 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-xs space-y-1">
+                            <div><strong className="text-indigo-400">Input:</strong> {tc.input}</div>
+                            <div><strong className="text-emerald-400">Expected:</strong> {tc.output}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-              <h3 className="text-lg font-bold text-white">Developer Tools Detected!</h3>
-              <p className="text-xs text-red-200/90 leading-relaxed">
-                Inspecting elements, opening the console, or debugging triggers an integrity flag. Close Developer Tools immediately to prevent review penalties.
+            </div>
+
+            {/* Right: Code Editor & Execution Console */}
+            <div className="lg:col-span-7 bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-2xl flex flex-col justify-between space-y-4">
+              <div className="space-y-3">
+                {/* Editor Header Bar */}
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Code2 className="w-4 h-4 text-indigo-400" />
+                    <span className="text-xs font-bold text-white">Solution Editor</span>
+                  </div>
+
+                  {/* Language Selector */}
+                  <select
+                    value={codingLanguage}
+                    onChange={(e) => {
+                      const newLang = e.target.value;
+                      setCodingLanguage(newLang);
+                      const activeProb = (questionsBank.Coding && questionsBank.Coding[codingActiveIndex]) || INITIAL_QUESTIONS_BANK.Coding[0];
+                      setCodingLanguages((prev) => ({ ...prev, [activeProb.id]: newLang }));
+                      if (!codingDrafts[activeProb.id] || codingDrafts[activeProb.id].trim().length < 10) {
+                        setCodingDrafts((prev) => ({
+                          ...prev,
+                          [activeProb.id]: EMPTY_STARTER_TEMPLATES[newLang] || EMPTY_STARTER_TEMPLATES.java,
+                        }));
+                      }
+                    }}
+                    className="bg-slate-950 text-white text-xs font-mono font-bold px-3 py-1.5 rounded-xl border border-slate-700 outline-none cursor-pointer"
+                  >
+                    <option value="java">Java (OpenJDK 21)</option>
+                    <option value="python">Python 3.12</option>
+                    <option value="c">C (GCC 13)</option>
+                    <option value="cpp">C++ (GCC 13)</option>
+                    <option value="javascript">JavaScript (Node.js 20)</option>
+                  </select>
+                </div>
+
+                {/* Clean Code Editor Textarea */}
+                {(() => {
+                  const activeProb = (questionsBank.Coding && questionsBank.Coding[codingActiveIndex]) || INITIAL_QUESTIONS_BANK.Coding[0];
+                  const currentCode = codingDrafts[activeProb.id] !== undefined
+                    ? codingDrafts[activeProb.id]
+                    : EMPTY_STARTER_TEMPLATES[codingLanguage] || EMPTY_STARTER_TEMPLATES.java;
+
+                  return (
+                    <textarea
+                      rows={14}
+                      value={currentCode}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCodingDrafts((prev) => ({ ...prev, [activeProb.id]: val }));
+                        setAutoSaveStatus('Saving...');
+                      }}
+                      className="w-full p-4 rounded-2xl bg-black/90 border border-slate-800 font-mono text-xs text-emerald-300 outline-none resize-none focus:border-indigo-500 selection:bg-indigo-600"
+                      placeholder="Write your code solution here..."
+                    />
+                  );
+                })()}
+
+                {/* Real Code Compilation Console Output */}
+                {codeConsoleOutput && (
+                  <div className="p-3.5 rounded-2xl bg-black/95 border border-slate-800 font-mono text-xs text-slate-200 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                    {codeConsoleOutput}
+                  </div>
+                )}
+              </div>
+
+              {/* Run Test Cases & Submit Controls */}
+              <div className="flex items-center justify-between border-t border-slate-800 pt-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const activeProb = (questionsBank.Coding && questionsBank.Coding[codingActiveIndex]) || INITIAL_QUESTIONS_BANK.Coding[0];
+                    setCodingDrafts((prev) => ({
+                      ...prev,
+                      [activeProb.id]: EMPTY_STARTER_TEMPLATES[codingLanguage] || EMPTY_STARTER_TEMPLATES.java,
+                    }));
+                  }}
+                  className="text-xs text-slate-400 hover:text-white cursor-pointer"
+                >
+                  Reset Template
+                </Button>
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleRunCodeTestCases}
+                  disabled={isRunningCode}
+                  className="bg-indigo-600 hover:bg-indigo-500 font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isRunningCode ? <Spinner size="xs" /> : <Play className="w-3.5 h-3.5 fill-white" />}
+                  <span>Run Against Sample</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Security Alert Notifications Modal */}
+        {devToolsWarningModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
+            <div className="w-full max-w-md bg-slate-900 rounded-3xl border border-red-500/40 p-6 space-y-4 text-center shadow-2xl">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Developer Tools Warning</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Developer tools inspection or page source access was detected. All security violations are recorded in your audit log.
               </p>
               <Button
                 variant="primary"
                 size="md"
-                onClick={() => {
-                  setDevToolsWarningModal(false);
-                  enterFullscreenMode();
-                }}
+                onClick={() => setDevToolsWarningModal(false)}
                 className="w-full bg-red-600 hover:bg-red-500 font-bold"
               >
-                I Understand &bull; Return to Exam
+                Acknowledge &amp; Resume
               </Button>
             </div>
           </div>
         )}
 
-        {/* Screen Share Interrupted Pause Overlay */}
+        {/* Screen Share Reconnect Modal */}
         {screenSharePauseModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-            <div className="w-full max-w-md bg-slate-900 rounded-3xl border border-amber-500/50 p-6 space-y-4 text-center shadow-2xl">
-              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
-                <PauseCircle className="w-7 h-7" />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+            <div className="w-full max-w-md bg-slate-900 rounded-3xl border border-amber-500/40 p-6 space-y-4 text-center shadow-2xl">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+                <PauseCircle className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-white">Assessment Paused</h3>
               <p className="text-xs text-amber-200/90 leading-relaxed">
@@ -1345,7 +1634,7 @@ export const SecureExamMode = () => {
   }
 
   // =========================================================================
-  // VIEW 2: PORTAL VIEW (OVERVIEW, 100% REAL SCORECARD, HISTORY, FACULTY AUDIT)
+  // VIEW 2: PORTAL VIEW (OVERVIEW, 100% REAL SCORECARD, REVIEW, HISTORY, FACULTY AUDIT)
   // =========================================================================
   return (
     <div className="space-y-6 animate-in fade-in duration-300 font-sans">
@@ -1367,7 +1656,7 @@ export const SecureExamMode = () => {
             icon={Play}
             disabled={remainingAttempts <= 0}
             onClick={() => setExamState('SYSTEM_CHECK')}
-            className="font-bold bg-indigo-600 hover:bg-indigo-500 shadow-lg disabled:opacity-50"
+            className="font-bold bg-indigo-600 hover:bg-indigo-500 shadow-lg disabled:opacity-50 cursor-pointer"
           >
             {remainingAttempts <= 0 ? 'Attempts Exhausted (3/3)' : viewTab === 'attempt' ? 'Retake Benchmark' : 'Launch Examination'}
           </Button>
@@ -1407,11 +1696,11 @@ export const SecureExamMode = () => {
           </div>
         </div>
 
-        {/* Right 3 Columns: Overview / Attempt Scorecard / History / Faculty */}
+        {/* Right 3 Columns: Overview / Attempt Scorecard / Question Review / History / Faculty */}
         <div className="lg:col-span-3 space-y-4">
           {/* Tab Selector Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-2">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 flex-wrap">
               <button
                 onClick={() => setViewTab('overview')}
                 className={`text-sm font-bold pb-2 transition relative cursor-pointer ${
@@ -1432,6 +1721,19 @@ export const SecureExamMode = () => {
               >
                 Attempt Scorecard
               </button>
+              {examResult?.reviewData && examResult.reviewData.length > 0 && (
+                <button
+                  onClick={() => setViewTab('review')}
+                  className={`text-sm font-bold pb-2 transition relative cursor-pointer flex items-center gap-1.5 ${
+                    viewTab === 'review'
+                      ? 'text-indigo-400 border-b-2 border-indigo-500'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Review Answers ({examResult.reviewData.length})</span>
+                </button>
+              )}
               <button
                 onClick={() => setViewTab('history')}
                 className={`text-sm font-bold pb-2 transition relative cursor-pointer ${
@@ -1440,7 +1742,7 @@ export const SecureExamMode = () => {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Attempt History (Dates)
+                Attempt History
               </button>
               <button
                 onClick={() => setViewTab('faculty')}
@@ -1490,8 +1792,8 @@ export const SecureExamMode = () => {
                     <td className="p-4"></td>
                     <td className="p-4 text-sm uppercase">Total</td>
                     <td className="p-4 text-center font-mono text-sm">42</td>
-                    <td className="p-4 text-center font-mono text-sm">60</td>
-                    <td className="p-4 text-center font-mono text-sm text-indigo-400">42</td>
+                    <td className="p-4 text-center font-mono text-sm">80</td>
+                    <td className="p-4 text-center font-mono text-sm text-indigo-400">60</td>
                   </tr>
                 </tbody>
               </table>
@@ -1513,7 +1815,19 @@ export const SecureExamMode = () => {
                         Completed: <strong className="text-slate-200">{examResult.completedAt}</strong>
                       </p>
                     </div>
-                    <Badge variant="indigo">Attempt 0{examResult.attemptNumber} of 03</Badge>
+                    <div className="flex items-center gap-3">
+                      {examResult.reviewData && examResult.reviewData.length > 0 && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setViewTab('review')}
+                          className="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-600/50 cursor-pointer"
+                        >
+                          Review All 42 Answers
+                        </Button>
+                      )}
+                      <Badge variant="indigo">Attempt 0{examResult.attemptNumber} of 03</Badge>
+                    </div>
                   </div>
 
                   {/* Top 4 KPI Metrics */}
@@ -1526,7 +1840,7 @@ export const SecureExamMode = () => {
                     <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">ASSESSMENT SCORE</span>
                       <strong className="text-indigo-400 text-lg block mt-1">
-                        {examResult.score} / {examResult.maxScore} ({examResult.percentage}%)
+                        {examResult.score} / {examResult.maxScore || 60} ({examResult.percentage}%)
                       </strong>
                     </div>
 
@@ -1633,33 +1947,6 @@ export const SecureExamMode = () => {
                   </div>
                 </div>
 
-                {/* Real Assessment Activity Telemetry Counters */}
-                <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl space-y-4">
-                  <h3 className="font-bold text-white text-sm">ASSESSMENT ACTIVITY</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono text-xs text-center">
-                    <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
-                      <span className="text-slate-400 text-[10px] block">Tab Switches</span>
-                      <strong className="text-slate-200 text-sm">{examResult.tabSwitches || 0}</strong>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
-                      <span className="text-slate-400 text-[10px] block">DevTools Events</span>
-                      <strong className="text-slate-200 text-sm">{examResult.devToolsCount || 0}</strong>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
-                      <span className="text-slate-400 text-[10px] block">Camera Events</span>
-                      <strong className="text-slate-200 text-sm">{examResult.cameraInterruptions || 0}</strong>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
-                      <span className="text-slate-400 text-[10px] block">Screen Interruptions</span>
-                      <strong className="text-slate-200 text-sm">{examResult.screenShareInterruptions || 0}</strong>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
-                      <span className="text-slate-400 text-[10px] block">Network Status</span>
-                      <strong className="text-emerald-400 text-sm">Stable</strong>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Email Delivery Audit Banner */}
                 <div className={`p-4 rounded-2xl border flex items-center justify-between gap-3 text-xs font-mono ${
                   examResult.emailSent !== false
@@ -1684,7 +1971,7 @@ export const SecureExamMode = () => {
                   variant="primary"
                   size="md"
                   onClick={() => setExamState('SYSTEM_CHECK')}
-                  className="bg-indigo-600 hover:bg-indigo-500 font-bold"
+                  className="bg-indigo-600 hover:bg-indigo-500 font-bold cursor-pointer"
                 >
                   Start Assessment
                 </Button>
@@ -1693,7 +1980,140 @@ export const SecureExamMode = () => {
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 3: REAL ATTEMPT HISTORY WITH ACTUAL DATES */}
+          {/* TAB 3: COMPLETE 42-QUESTION REVIEW WITH ANSWERS & EXPLANATIONS */}
+          {/* ========================================================================= */}
+          {viewTab === 'review' && (
+            <div className="space-y-4">
+              <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-indigo-400" />
+                      <span>Full Assessment Question Review (42 Questions)</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Review all questions, your selected answers, official solutions, and coding test case reports.
+                    </p>
+                  </div>
+
+                  {/* Section Filter Chips */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {['All', 'Aptitude', 'Reasoning', 'Verbal', 'Pseudo Code', 'Coding'].map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setReviewFilter(cat)}
+                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                          reviewFilter === cat
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Review Questions List */}
+                <div className="space-y-4">
+                  {(examResult?.reviewData || [])
+                    .filter((q) => reviewFilter === 'All' || q.section === reviewFilter)
+                    .map((item, idx) => {
+                      const isMcq = item.section !== 'Coding';
+                      const isCorrect = item.isCorrect;
+                      const statusColor = isCorrect
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                        : item.studentAnswerIndex !== null && item.studentAnswerIndex !== undefined
+                        ? 'bg-red-500/20 text-red-400 border-red-500/40'
+                        : 'bg-slate-800 text-slate-400 border-slate-700';
+
+                      return (
+                        <div
+                          key={item.id || idx}
+                          className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3.5 text-xs"
+                        >
+                          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-indigo-400 font-mono">
+                                #{item.questionNumber || idx + 1} &bull; {item.section}
+                              </span>
+                              <span className="text-slate-500 font-mono">({item.topic || 'Standard'})</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2.5 py-0.5 rounded-md border font-bold text-[10px] ${statusColor}`}>
+                                {item.status || (isCorrect ? 'Correct' : 'Incorrect')} &bull; {item.marksEarned || 0}/{item.maxMarks || 1} M
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* MCQ Question Statement */}
+                          <div className="space-y-2">
+                            <p className="font-bold text-white text-xs leading-relaxed">
+                              {item.question || item.description || item.title}
+                            </p>
+
+                            {item.codeSnippet && (
+                              <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 font-mono text-indigo-300 whitespace-pre-wrap">
+                                {item.codeSnippet}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* MCQ Options Display */}
+                          {isMcq && item.options && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                              {item.options.map((opt, oIdx) => {
+                                const isChosen = item.studentAnswerIndex === oIdx;
+                                const isRightAns = item.correctAnswerIndex === oIdx;
+
+                                let optBorder = 'border-slate-800 bg-slate-900/60 text-slate-400';
+                                if (isRightAns) {
+                                  optBorder = 'border-emerald-500/60 bg-emerald-500/15 text-emerald-300 font-bold';
+                                } else if (isChosen && !isRightAns) {
+                                  optBorder = 'border-red-500/60 bg-red-500/15 text-red-300 font-bold';
+                                }
+
+                                return (
+                                  <div
+                                    key={oIdx}
+                                    className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${optBorder}`}
+                                  >
+                                    <span>{String.fromCharCode(65 + oIdx)}. {opt}</span>
+                                    {isRightAns && <span className="text-[10px] text-emerald-400 font-bold">✓ Correct</span>}
+                                    {isChosen && !isRightAns && <span className="text-[10px] text-red-400 font-bold">✗ Your Answer</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Coding Problem Code Review */}
+                          {!isMcq && (
+                            <div className="space-y-2 pt-1">
+                              <span className="text-[11px] font-bold text-slate-400 uppercase">Submitted Code ({item.language || 'java'}):</span>
+                              <div className="p-3 rounded-xl bg-black border border-slate-800 font-mono text-emerald-400 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                {item.studentCode || '// No code submitted'}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Explanation Box */}
+                          {item.explanation && (
+                            <div className="p-3 rounded-xl bg-indigo-950/30 border border-indigo-500/20 text-indigo-200 text-xs space-y-1">
+                              <strong className="text-indigo-400 block font-sans">Explanation / Solution:</strong>
+                              <p className="leading-relaxed">{item.explanation}</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 4: REAL ATTEMPT HISTORY WITH ACTUAL DATES */}
           {/* ========================================================================= */}
           {viewTab === 'history' && (
             <div className="space-y-4">
@@ -1735,7 +2155,7 @@ export const SecureExamMode = () => {
                         <div className="flex items-center gap-6">
                           <div>
                             <span className="text-[10px] text-slate-500 block">Assessment Score</span>
-                            <span className="font-bold text-indigo-400 text-sm">{att.score}</span>
+                            <span className="font-bold text-indigo-400 text-sm">{att.score} ({att.rawScore || ''})</span>
                           </div>
                           <div>
                             <span className="text-[10px] text-slate-500 block">Integrity Score</span>
@@ -1751,7 +2171,7 @@ export const SecureExamMode = () => {
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 4: FACULTY REVIEW AUDIT PANEL */}
+          {/* TAB 5: FACULTY REVIEW AUDIT PANEL */}
           {/* ========================================================================= */}
           {viewTab === 'faculty' && (
             <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl space-y-4">
@@ -1798,112 +2218,122 @@ export const SecureExamMode = () => {
                   <span>Pre-Exam System Clearance Check</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Complete all hardware &amp; environment checks before launching <strong>Full Pattern Mock Assessment</strong>.
+                  Complete all 4 diagnostic verifications to launch your monitored examination.
                 </p>
               </div>
-              <button onClick={() => setExamState('PORTAL')} className="text-slate-400 hover:text-white">✕</button>
+              <button
+                type="button"
+                onClick={() => setExamState('PORTAL')}
+                className="text-slate-400 hover:text-white p-1 cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Step 1: Camera Setup */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-2">
-                    <Camera className="w-4 h-4 text-indigo-400" />
-                    <span>1. Camera Verification</span>
+            {/* 4 Proctoring Checks List */}
+            <div className="space-y-3">
+              {/* Check 1: Camera Hardware */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">Camera &amp; Facial Visibility</h4>
+                    <p className="text-[11px] text-slate-400">Continuous biometric feed validation</p>
+                  </div>
+                </div>
+                {cameraAllowed ? (
+                  <span className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1 border border-emerald-500/30">
+                    <CheckCircle className="w-3.5 h-3.5" /> Verified
                   </span>
-                  {cameraAllowed ? (
-                    <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" /> Ready
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={requestCameraAccess}
-                      className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
-                    >
-                      Enable Camera
-                    </button>
-                  )}
-                </div>
-                <div className="w-full h-32 rounded-xl bg-black border border-slate-800 overflow-hidden relative flex items-center justify-center">
-                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
-                  {!cameraAllowed && (
-                    <div className="absolute text-center text-slate-500 text-xs px-2">
-                      Click Enable Camera to initialize live video stream
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <Button variant="primary" size="xs" onClick={requestCameraAccess} className="bg-indigo-600 hover:bg-indigo-500 cursor-pointer">
+                    Enable Camera
+                  </Button>
+                )}
               </div>
 
-              {/* Step 3: Screen Share Setup */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-2">
-                    <Monitor className="w-4 h-4 text-indigo-400" />
-                    <span>3. Entire Screen Share</span>
+              {/* Check 2: Desktop Screen Share */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                    <Monitor className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">Entire Desktop Screen Sharing</h4>
+                    <p className="text-[11px] text-slate-400">Prevents split-screen AI tools &amp; background apps</p>
+                  </div>
+                </div>
+                {screenShareAllowed ? (
+                  <span className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1 border border-emerald-500/30">
+                    <CheckCircle className="w-3.5 h-3.5" /> Streaming
                   </span>
-                  {screenShareAllowed ? (
-                    <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" /> Shared
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={requestScreenShareAccess}
-                      className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
-                    >
-                      Share Screen
-                    </button>
-                  )}
+                ) : (
+                  <Button variant="primary" size="xs" onClick={requestScreenShareAccess} className="bg-indigo-600 hover:bg-indigo-500 cursor-pointer">
+                    Share Entire Screen
+                  </Button>
+                )}
+              </div>
+
+              {/* Check 3: Fullscreen Enforcement */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                    <Maximize className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">Exclusive Fullscreen Environment</h4>
+                    <p className="text-[11px] text-slate-400">Locks window focus to proctored canvas</p>
+                  </div>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-300 space-y-2">
-                  <p className="font-bold text-indigo-300">Mandatory Proctoring Rule:</p>
-                  <p>Share your entire primary desktop screen. Disconnecting screen share pauses assessment and flags event.</p>
+                {fullscreenActive ? (
+                  <span className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1 border border-emerald-500/30">
+                    <CheckCircle className="w-3.5 h-3.5" /> Locked
+                  </span>
+                ) : (
+                  <Button variant="primary" size="xs" onClick={enterFullscreenMode} className="bg-indigo-600 hover:bg-indigo-500 cursor-pointer">
+                    Enter Fullscreen
+                  </Button>
+                )}
+              </div>
+
+              {/* Check 4: Network Connectivity */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                    <Wifi className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">Cloud Sync &amp; Low Latency</h4>
+                    <p className="text-[11px] text-slate-400">Real-time answer persistence &amp; telemetry</p>
+                  </div>
                 </div>
+                <span className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1 border border-emerald-500/30 font-mono">
+                  <CheckCircle className="w-3.5 h-3.5" /> {pingLatency}ms (Online)
+                </span>
               </div>
             </div>
 
-            {/* Checklist */}
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-2">
-              <div className="flex items-center justify-between text-slate-300">
-                <span className="flex items-center gap-2">
-                  <Wifi className="w-4 h-4 text-emerald-400" /> 4. Internet Diagnostic ({pingLatency}ms latency)
-                </span>
-                <span className="text-emerald-400 font-bold">Passed</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-300">
-                <span className="flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-indigo-400" /> 5. Browser Compatibility Check
-                </span>
-                <span className="text-emerald-400 font-bold">Supported (Chrome 122+)</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-300">
-                <span className="flex items-center gap-2">
-                  <Maximize className="w-4 h-4 text-indigo-400" /> 6. Fullscreen Lock Mode
-                </span>
-                <span className="text-emerald-400 font-bold">Auto-Enforced</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-300">
-                <span className="flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-emerald-400" /> 7. Privacy &amp; Data Retention Consent
-                </span>
-                <span className="text-emerald-400 font-bold">Accepted</span>
-              </div>
+            {/* Hidden Camera Preview Video */}
+            <div className="hidden">
+              <video ref={videoRef} autoPlay playsInline muted />
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <Button variant="outline" size="sm" onClick={() => setExamState('PORTAL')}>
-                Cancel
-              </Button>
+            {/* Launch Action */}
+            <div className="border-t border-slate-800 pt-4 flex items-center justify-between">
+              <span className="text-[11px] text-slate-400">
+                Assessment: <strong>42 Questions &bull; 60 Marks &bull; 80 Mins</strong>
+              </span>
+
               <Button
                 variant="primary"
                 size="md"
-                onClick={handleLaunchAssessment}
-                disabled={!cameraAllowed || !screenShareAllowed}
-                className="font-bold bg-indigo-600 hover:bg-indigo-500 border-0 shadow-lg"
+                disabled={!cameraAllowed || !screenShareAllowed || !fullscreenActive}
+                onClick={handleStartExam}
+                className="bg-emerald-600 hover:bg-emerald-500 font-bold px-6 shadow-xl disabled:opacity-40 cursor-pointer"
               >
-                Step 8: Start 60-Minute Assessment
+                Launch Monitored Exam
               </Button>
             </div>
           </div>

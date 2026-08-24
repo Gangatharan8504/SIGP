@@ -58,6 +58,7 @@ export const examProctorApi = {
   logEvent: (data) => api.post('/exam-proctor/events/log', data),
   autoSave: (data) => api.post('/exam-proctor/autosave', data),
   submitSecureExam: (data) => api.post('/exam-proctor/submit', data),
+  getReview: (attemptId) => api.get(`/exam-proctor/review/${attemptId}`),
   getHistory: (assessmentId) => api.get(`/exam-proctor/history/${assessmentId}`),
   getFacultyAnalytics: (assessmentId) => api.get(`/exam-proctor/faculty/analytics/${assessmentId}`),
 };

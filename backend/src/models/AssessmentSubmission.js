@@ -3,8 +3,7 @@ const mongoose = require("mongoose");
 const assessmentSubmissionSchema = new mongoose.Schema(
   {
     assessmentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Assessment",
+      type: mongoose.Schema.Types.Mixed,
       required: true,
       index: true,
     },
@@ -25,7 +24,7 @@ const assessmentSubmissionSchema = new mongoose.Schema(
     },
     maxScore: {
       type: Number,
-      required: true,
+      default: 60, // Fixed 60 marks total (10+10+10+10+20)
     },
     percentage: {
       type: Number,
@@ -45,8 +44,7 @@ const assessmentSubmissionSchema = new mongoose.Schema(
     },
     reviewStatus: {
       type: String,
-      enum: ["VERIFIED_CLEAN", "NEEDS_FACULTY_REVIEW", "PENALIZED", "FLAGGED"],
-      default: "VERIFIED_CLEAN",
+      default: "Verified Clean",
     },
     facultyReviewNotes: {
       type: String,
@@ -90,27 +88,20 @@ const assessmentSubmissionSchema = new mongoose.Schema(
     },
     sectionScores: {
       type: mongoose.Schema.Types.Mixed,
-      default: {
-        Aptitude: { score: 0, maxScore: 10, avgScore: 5.32, topScore: 10, leastScore: 0 },
-        Reasoning: { score: 0, maxScore: 10, avgScore: 6.15, topScore: 10, leastScore: 0 },
-        Verbal: { score: 0, maxScore: 10, avgScore: 5.80, topScore: 10, leastScore: 0 },
-        "Pseudo Code": { score: 0, maxScore: 10, avgScore: 4.90, topScore: 10, leastScore: 0 },
-        Coding: { score: 0, maxScore: 20, avgScore: 8.50, topScore: 20, leastScore: 0 },
-      },
+      default: {},
     },
-    answers: [
-      {
-        questionId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Question",
-        },
-        selectedOptionIndex: Number,
-        codeSubmitted: String,
-        isCorrect: Boolean,
-        marksEarned: Number,
-        section: String,
-      },
-    ],
+    answers: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    codingAnswers: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    reviewData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: [],
+    },
     timeSpentSeconds: {
       type: Number,
       default: 0,
