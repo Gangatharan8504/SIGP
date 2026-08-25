@@ -470,12 +470,130 @@ const sendExamResultEmail = async ({
   });
 };
 
+/**
+ * Transactional Personalized 6-Week Placement Roadmap Progress Notification Email
+ */
+const sendRoadmapUpdateEmail = async ({
+  to,
+  name,
+  targetRole = "Java Developer",
+  overallProgress = 0,
+  completedWeekNumber = null,
+  unlockedWeekNumber = null,
+  nextTaskTitle = "",
+  weakAreas = [],
+  actionType = "GENERATED", // "GENERATED", "WEEK_UNLOCKED", "COMPLETED"
+}) => {
+  const appUrl = process.env.FRONTEND_URL || "https://sigp-rust.vercel.app";
+  const timestamp = new Date().toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const headline =
+    actionType === "WEEK_UNLOCKED"
+      ? `Milestone Reached: Week ${completedWeekNumber} Completed & Week ${unlockedWeekNumber} Unlocked!`
+      : actionType === "COMPLETED"
+      ? `🎉 Congratulations! Full 6-Week ${targetRole} Roadmap Completed!`
+      : `Your Personalized ${targetRole} 6-Week Placement Roadmap is Ready!`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /><title>SGIP Learning Roadmap Update</title></head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 25px 0;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <tr>
+            <td style="background-color: #4f46e5; padding: 28px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800;">SGIP PLACEMENT INTELLIGENCE</h1>
+              <p style="margin: 4px 0 0; color: #e0e7ff; font-size: 12px; font-weight: 500;">Personalized AI Placement Roadmap</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px;">
+              <div style="display: inline-block; background-color: #eef2ff; border: 1px solid #c7d2fe; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; color: #4338ca; margin-bottom: 12px;">
+                ${targetRole.toUpperCase()} &bull; 6-WEEK MILESTONE PLAN
+              </div>
+              <h2 style="margin: 0 0 8px; color: #0f172a; font-size: 18px; font-weight: 700;">${headline}</h2>
+              <p style="margin: 0 0 20px; font-size: 13px; color: #475569; line-height: 1.6;">
+                Hello <strong>${name}</strong>, your AI-curated placement preparation roadmap for <strong>${targetRole}</strong> was updated on <strong>${timestamp}</strong>:
+              </p>
+
+              <!-- Progress Metric Card -->
+              <table border="0" cellpadding="16" cellspacing="0" width="100%" style="background-color: #0f172a; border-radius: 10px; margin-bottom: 24px; text-align: center;">
+                <tr>
+                  <td width="50%" style="border-right: 1px solid #1e293b;">
+                    <div style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">TARGET ROLE</div>
+                    <div style="font-size: 16px; font-weight: 800; color: #ffffff; margin-top: 4px;">${targetRole}</div>
+                  </td>
+                  <td width="50%">
+                    <div style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">OVERALL PROGRESS</div>
+                    <div style="font-size: 20px; font-weight: 800; color: #34d399; margin-top: 4px;">${overallProgress}% Completed</div>
+                  </td>
+                </tr>
+              </table>
+
+              ${nextTaskTitle ? `
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
+                <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">NEXT RECOMMENDED ACTION</div>
+                <div style="font-size: 14px; font-weight: 700; color: #1e293b; margin-top: 4px;">👉 ${nextTaskTitle}</div>
+              </div>` : ''}
+
+              ${weakAreas && weakAreas.length > 0 ? `
+              <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
+                <div style="font-size: 11px; font-weight: 700; color: #9f1239; text-transform: uppercase;">AI PRIORITIZED FOCUS AREAS</div>
+                <div style="font-size: 12px; color: #881337; margin-top: 4px;">${weakAreas.join(" &bull; ")}</div>
+              </div>` : ''}
+
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 25px 0 10px;">
+                <tr>
+                  <td align="center">
+                    <a href="${appUrl}/learning-plan" target="_blank" style="background-color: #4f46e5; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 28px; border-radius: 8px; display: inline-block;">
+                      Open My 6-Week Roadmap &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 30px; text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #94a3b8;">
+                &copy; ${new Date().getFullYear()} SGIP Placement Intelligence System. Dynamic Student Growth Roadmap.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = `SGIP PERSONALIZED ROADMAP UPDATE\nHello ${name},\nYour ${targetRole} roadmap is ${overallProgress}% completed.\n${nextTaskTitle ? `Next task: ${nextTaskTitle}\n` : ''}Continue learning at: ${appUrl}/learning-plan`;
+
+  return await sendEmail({
+    to,
+    subject: `SGIP – Your Personalized Roadmap Has Been Updated - ${name}`,
+    text,
+    html,
+  });
+};
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
   sendProfileChangeEmail,
   sendSkillMatrixEmail,
   sendExamResultEmail,
+  sendRoadmapUpdateEmail,
 };
+
 
 

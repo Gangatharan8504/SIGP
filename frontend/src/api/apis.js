@@ -99,6 +99,7 @@ export const learningApi = {
   getMyPlan: () => api.get('/learning-plans/my-plan'),
   toggleTask: (data) => api.patch('/learning-plans/task-toggle', data),
   regeneratePlan: (data) => api.post('/learning-plans/regenerate', data),
+  getHistory: () => api.get('/learning-plans/history'),
 };
 
 export const courseApi = learningApi;
