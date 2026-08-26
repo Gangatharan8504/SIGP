@@ -146,6 +146,7 @@ export const notificationApi = {
 
 export const adminApi = {
   getStats: () => api.get('/admin/stats'),
+  getDatabaseStats: () => api.get('/admin/database-stats'),
   getStudents: (params) => api.get('/admin/students', { params }),
   getStudentDetails: (id) => api.get(`/admin/students/${id}`),
   createSkill: (data) => api.post('/admin/skills', data),

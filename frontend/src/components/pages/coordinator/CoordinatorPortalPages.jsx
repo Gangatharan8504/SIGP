@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { MetricCard } from '../../common/MetricCard';
 import { Button, Badge, Spinner, Input } from '../../common/UIElements';
+import { DatabaseStorageMonitor } from '../../admin/DatabaseStorageMonitor';
 
 export const CoordinatorDashboard = () => {
   const [data, setData] = useState(null);
@@ -101,6 +102,9 @@ export const CoordinatorDashboard = () => {
           color="rose"
         />
       </div>
+
+      {/* MongoDB Database Storage Telemetry */}
+      <DatabaseStorageMonitor />
     </div>
   );
 };

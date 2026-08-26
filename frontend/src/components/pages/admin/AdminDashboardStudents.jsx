@@ -18,6 +18,7 @@ import {
 import { MetricCard } from '../../common/MetricCard';
 import { Button, Badge, Spinner, Input, Modal } from '../../common/UIElements';
 import { SkillRadarChart } from '../../charts/SkillCharts';
+import { DatabaseStorageMonitor } from '../../admin/DatabaseStorageMonitor';
 
 export const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -65,7 +66,7 @@ export const AdminDashboard = () => {
             <span className="text-xs text-slate-400 font-mono">Academic Year 2025-2026</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white mt-1">Institutional Placement Analytics</h1>
-          <p className="text-xs text-slate-400">Live recruitment monitoring and student readiness intelligence</p>
+          <p className="text-xs text-slate-400">Live recruitment monitoring, MongoDB Atlas telemetry, and candidate readiness intelligence</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -112,6 +113,9 @@ export const AdminDashboard = () => {
           trend={{ positive: true, text: "3 ongoing this week" }}
         />
       </div>
+
+      {/* MongoDB Database Usage & Storage Monitoring Section */}
+      <DatabaseStorageMonitor />
 
       {/* Main Grid: Cohort Readiness Radar & Recent Activity Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

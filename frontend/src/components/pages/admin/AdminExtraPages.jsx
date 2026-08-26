@@ -3,6 +3,7 @@ import { adminApi, assessmentApi, courseApi, companyApi } from '../../../api/api
 import { HelpCircle, Plus, FileCheck, BookOpen, Building2, BarChart3, FileText, Settings, Download } from 'lucide-react';
 import { Button, Badge, Spinner, Input, Modal } from '../../common/UIElements';
 import { SkillRadarChart, ReadinessTrendChart } from '../../charts/SkillCharts';
+import { DatabaseStorageMonitor } from '../../admin/DatabaseStorageMonitor';
 
 export const QuestionBank = () => {
   const [questions, setQuestions] = useState([]);
@@ -325,6 +326,18 @@ export const AdminSettings = () => {
           <Input label="Max Allowed Standing Arrears" type="number" defaultValue="0" />
         </div>
       </div>
+    </div>
+  );
+};
+
+export const DatabaseMonitoringPage = () => {
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300 max-w-7xl mx-auto">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-black text-white">MongoDB Database Usage &amp; Storage Monitoring</h1>
+        <p className="text-xs text-slate-400">Live storage quotas, collection indexes, and performance telemetry from MongoDB Atlas</p>
+      </div>
+      <DatabaseStorageMonitor />
     </div>
   );
 };

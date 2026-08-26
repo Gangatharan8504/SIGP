@@ -10,6 +10,7 @@ const {
   createCompany,
   createPlacementDrive,
   createCourse,
+  getDatabaseStats,
 } = require("../controllers/adminController");
 const { protect, authorize } = require("../middleware/authMiddleware");
 
@@ -19,6 +20,7 @@ const router = express.Router();
 const adminOnly = [protect, authorize("admin", "ADMIN", "FACULTY", "PLACEMENT_COORDINATOR")];
 
 router.get("/stats", ...adminOnly, getAdminStats);
+router.get("/database-stats", ...adminOnly, getDatabaseStats);
 router.get("/students", ...adminOnly, getAdminStudents);
 router.get("/students/:id", ...adminOnly, getStudentDetails);
 router.post("/skills", ...adminOnly, createSkill);

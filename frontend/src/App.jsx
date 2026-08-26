@@ -54,6 +54,7 @@ import {
   AnalyticsPage,
   ReportsPage,
   AdminSettings,
+  DatabaseMonitoringPage,
 } from './components/pages/admin/AdminExtraPages';
 
 function App() {
@@ -126,6 +127,8 @@ function App() {
                 <Route path="/admin/applications" element={<ApplicationsManagement />} />
                 <Route path="/admin/analytics" element={<AnalyticsPage />} />
                 <Route path="/admin/reports" element={<ReportsPage />} />
+                <Route path="/admin/database-stats" element={<DatabaseMonitoringPage />} />
+                <Route path="/admin/database-storage" element={<DatabaseMonitoringPage />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
               </Route>
 

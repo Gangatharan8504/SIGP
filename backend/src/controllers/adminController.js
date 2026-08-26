@@ -202,6 +202,159 @@ const createCourse = async (req, res) => {
   }
 };
 
+// @desc    Get MongoDB Atlas Database Usage & Storage Statistics
+// @route   GET /api/admin/database-stats
+const getDatabaseStats = async (req, res) => {
+  try {
+    const mongoose = require("mongoose");
+    const db = mongoose.connection.db;
+
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        message: "Database connection is not yet initialized.",
+      });
+    }
+
+    // 1. Fetch database-level stats via dbStats command
+    let dbStats = {};
+    try {
+      dbStats = await db.command({ dbStats: 1, scale: 1 });
+    } catch (err) {
+      console.warn("[DB Stats Warning]:", err.message);
+    }
+
+    // 2. Count total registered students
+    const totalStudents =
+      (await User.countDocuments({ role: { $in: ["student", "STUDENT"] } })) ||
+      (await StudentProfile.countDocuments()) ||
+      0;
+
+    // 3. Collection mapping helper
+    const formatCollectionDisplayName = (name) => {
+      const map = {
+        users: "Students & Auth Accounts",
+        studentprofiles: "Student Profiles & 360",
+        academics: "Academic & CGPA Records",
+        skills: "Master Skills Catalog",
+        studentskills: "Student Verified Skills",
+        assessments: "Mock Assessments",
+        assessmentsubmissions: "Assessment Submissions",
+        learningplans: "Personalized AI Roadmaps",
+        questions: "Question Bank & Test Cases",
+        courses: "Courses & Curriculums",
+        companies: "Corporate Partners",
+        placementdrives: "Placement Drives",
+        applications: "Drive Applications",
+        activitylogs: "Audit Logs & Progress",
+        notifications: "System Notifications",
+        examsessions: "Active Proctored Exams",
+        examintegrityevents: "Proctoring Integrity Logs",
+      };
+      return map[name.toLowerCase()] || name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
+    // Helper to format bytes
+    const formatBytes = (bytes, decimals = 2) => {
+      if (!bytes || bytes === 0) return "0 Bytes";
+      const k = 1024;
+      const dm = decimals < 0 ? 0 : decimals;
+      const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+    };
+
+    // 4. Discover all collections and calculate individual statistics
+    const collectionsList = await db.listCollections().toArray();
+    const collectionStats = [];
+    let calculatedTotalDocs = 0;
+    let calculatedDataSize = 0;
+    let calculatedStorageSize = 0;
+    let calculatedIndexSize = 0;
+
+    for (const col of collectionsList) {
+      const colName = col.name;
+      if (colName.startsWith("system.")) continue;
+
+      let docCount = 0;
+      let colDataSize = 0;
+      let colStorageSize = 0;
+      let colIndexSize = 0;
+      let avgObjSize = 0;
+
+      try {
+        const cStats = await db.command({ collStats: colName, scale: 1 });
+        docCount = cStats.count || 0;
+        colDataSize = cStats.size || 0;
+        colStorageSize = cStats.storageSize || colDataSize;
+        colIndexSize = cStats.totalIndexSize || 0;
+        avgObjSize = cStats.avgObjSize || (docCount > 0 ? Math.round(colDataSize / docCount) : 0);
+      } catch (cErr) {
+        // Fallback document counting
+        docCount = await db.collection(colName).countDocuments();
+        colDataSize = docCount * 400; // estimated fallback
+        colStorageSize = colDataSize;
+        colIndexSize = docCount * 50;
+        avgObjSize = 400;
+      }
+
+      calculatedTotalDocs += docCount;
+      calculatedDataSize += colDataSize;
+      calculatedStorageSize += colStorageSize;
+      calculatedIndexSize += colIndexSize;
+
+      collectionStats.push({
+        name: colName,
+        displayName: formatCollectionDisplayName(colName),
+        documents: docCount,
+        dataSizeBytes: colDataSize,
+        dataSizeFormatted: formatBytes(colDataSize),
+        storageSizeBytes: colStorageSize,
+        storageSizeFormatted: formatBytes(colStorageSize),
+        indexSizeBytes: colIndexSize,
+        indexSizeFormatted: formatBytes(colIndexSize),
+        avgObjSizeBytes: avgObjSize,
+        avgObjSizeFormatted: formatBytes(avgObjSize),
+      });
+    }
+
+    // Sort collections by storage size descending
+    collectionStats.sort((a, b) => (b.storageSizeBytes || b.documents) - (a.storageSizeBytes || a.documents));
+
+    const dataSize = dbStats.dataSize || calculatedDataSize;
+    const storageSize = dbStats.storageSize || calculatedStorageSize || dataSize;
+    const indexSize = dbStats.indexSize || calculatedIndexSize;
+    const totalSize = (storageSize || dataSize) + indexSize;
+    const totalDocuments = dbStats.objects || calculatedTotalDocs;
+    const storageLimit = 536870912; // 512 MB (Atlas M0 limit)
+    const usagePercentage = Number(((totalSize / storageLimit) * 100).toFixed(2));
+
+    return res.json({
+      success: true,
+      databaseName: db.databaseName || "SGIP_Placement_Atlas_DB",
+      dataSize,
+      dataSizeFormatted: formatBytes(dataSize),
+      storageSize,
+      storageSizeFormatted: formatBytes(storageSize),
+      indexSize,
+      indexSizeFormatted: formatBytes(indexSize),
+      totalSize,
+      totalSizeFormatted: formatBytes(totalSize),
+      totalDocuments,
+      totalStudents,
+      storageLimit,
+      storageLimitFormatted: formatBytes(storageLimit),
+      usagePercentage,
+      collectionsCount: collectionStats.length,
+      collections: collectionStats,
+      lastUpdated: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Database stats error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getAdminStats,
   getAdminStudents,
@@ -213,4 +366,5 @@ module.exports = {
   createCompany,
   createPlacementDrive,
   createCourse,
+  getDatabaseStats,
 };

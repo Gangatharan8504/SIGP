@@ -21,6 +21,7 @@ import {
   HelpCircle,
   Clock,
   Terminal,
+  Database,
 } from 'lucide-react';
 
 export const Sidebar = ({ isOpen, onClose }) => {
@@ -52,6 +53,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { label: 'Question Bank', path: '/admin/question-bank', icon: HelpCircle },
     { label: 'RAG Knowledge Ingestion', path: '/faculty/rag', icon: Upload },
     { label: 'Student Directory & 360', path: '/admin/students', icon: Users },
+    { label: 'MongoDB Storage Monitor', path: '/admin/database-stats', icon: Database },
   ];
 
   const coordinatorNavItems = [
@@ -62,6 +64,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { label: 'Corporate Partners', path: '/admin/companies', icon: Building2 },
     { label: 'Student Directory', path: '/admin/students', icon: Users },
     { label: 'NIRF / NAAC Reports', path: '/admin/reports', icon: BarChart3 },
+    { label: 'MongoDB Storage Monitor', path: '/admin/database-stats', icon: Database },
   ];
 
   let navItems = studentNavItems;
