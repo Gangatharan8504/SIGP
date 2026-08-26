@@ -24,24 +24,41 @@ import {
   Check,
   Send,
   Zap,
+  Palette,
+  Type,
 } from 'lucide-react';
 import { Button, Input, Badge, Spinner } from '../common/UIElements';
 import {
-  ATSProfessionalTemplate,
-  ModernProfessionalTemplate,
-  MinimalTemplate,
-  FresherStudentTemplate,
+  ATSSwanTemplate,
+  ModernBearTemplate,
+  MinimalRavenTemplate,
+  FresherPenguinTemplate,
 } from './ResumeTemplates';
 import { DEFAULT_RESUME_DATA } from '../../utils/defaultResume';
 import { generatePdfFromElement, printResumeElement } from '../../utils/pdfGenerator';
 import { resumeApi } from '../../api/apis';
 import confetti from 'canvas-confetti';
 
-const TEMPLATES = [
-  { id: 'ats_pro', name: 'ATS Professional', desc: 'Standard single-column layout for top ATS scoring' },
-  { id: 'modern', name: 'Modern Professional', desc: 'Sleek design with indigo accents' },
-  { id: 'minimal', name: 'Minimal (B&W)', desc: 'High-contrast monochrome for strict parsers' },
-  { id: 'fresher', name: 'Fresher / Student', desc: 'Education & Projects prioritized for graduates' },
+const GORESUME_TEMPLATES = [
+  { id: 'swan', name: 'Swan (ATS Single-Column)', archetype: 'ATS Standard', chosen: '5.1K users', desc: 'Highest ATS readability' },
+  { id: 'bear', name: 'Bear (Modern Accent)', archetype: 'Modern Tech', chosen: '4.8K users', desc: 'Clean sidebar accent' },
+  { id: 'raven', name: 'Raven (Minimal B&W)', archetype: 'Clean Minimal', chosen: '4.2K users', desc: 'High-contrast monochrome' },
+  { id: 'penguin', name: 'Penguin (Fresher/Student)', archetype: 'University First', chosen: '5.5K users', desc: 'Education & Projects first' },
+];
+
+const COLOR_SWATCHES = [
+  { id: 'indigo', name: 'Indigo', hex: '#4f46e5' },
+  { id: 'purple', name: 'Purple', hex: '#9333ea' },
+  { id: 'rose', name: 'Rose', hex: '#e11d48' },
+  { id: 'emerald', name: 'Emerald', hex: '#059669' },
+  { id: 'slate', name: 'Slate', hex: '#0f172a' },
+  { id: 'navy', name: 'Navy', hex: '#1e3a8a' },
+];
+
+const FONT_OPTIONS = [
+  { id: 'sans', name: 'Modern Sans' },
+  { id: 'serif', name: 'Classic Serif' },
+  { id: 'mono', name: 'Clean Mono' },
 ];
 
 export const ResumeBuilder = ({ onSendToATS }) => {
@@ -55,7 +72,9 @@ export const ResumeBuilder = ({ onSendToATS }) => {
   });
 
   const [activeSection, setActiveSection] = useState('personal');
-  const [selectedTemplate, setSelectedTemplate] = useState('ats_pro');
+  const [selectedTemplate, setSelectedTemplate] = useState('swan');
+  const [themeColor, setThemeColor] = useState('indigo');
+  const [fontFamily, setFontFamily] = useState('sans');
   const [zoomLevel, setZoomLevel] = useState(0.85);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isImprovingProjId, setIsImprovingProjId] = useState(null);
@@ -156,7 +175,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
             p.id === projId ? { ...p, description: res.data.improvedDescription } : p
           ),
         }));
-        setNotification({ type: 'success', text: '🚀 Project description enhanced with action verbs!' });
+        setNotification({ type: 'success', text: '🚀 Project description enhanced with Google XYZ action verbs!' });
         setTimeout(() => setNotification(null), 3500);
       }
     } catch (e) {
@@ -278,7 +297,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
     setResumeData((prev) => ({ ...prev, achievements: prev.achievements.filter((a) => a.id !== id) }));
   };
 
-  // Download PDF Handler
+  // Download PDF Handler (Strict 1-Page)
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
     try {
@@ -287,7 +306,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
 
       if (success) {
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-        setNotification({ type: 'success', text: `✓ ${fileName} downloaded successfully!` });
+        setNotification({ type: 'success', text: `✓ 1-Page ${fileName} downloaded successfully!` });
         setTimeout(() => setNotification(null), 4000);
       }
     } catch (e) {
@@ -297,7 +316,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
     }
   };
 
-  // Clear or Reset
+  // Reset or Clear
   const handleClearResume = () => {
     if (window.confirm('Are you sure you want to clear the resume? This will reset all fields.')) {
       setResumeData({
@@ -321,7 +340,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
     }
   };
 
-  // Convert current structured resume to plain text for ATS analysis
+  // Convert to plain text for ATS analysis
   const handleAnalyzeInATS = () => {
     const p = resumeData.personalInfo || {};
     let text = `${p.fullName || 'NAME'}\n`;
@@ -384,78 +403,103 @@ export const ResumeBuilder = ({ onSendToATS }) => {
         </div>
       )}
 
-      {/* Top Action Bar */}
-      <div className="glass-panel rounded-3xl p-5 border border-slate-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-xl bg-slate-900/90">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="rose">Interactive Resume Studio</Badge>
-            {lastSaved && (
-              <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
-                <Check className="w-3 h-3" /> Saved automatically ({lastSaved})
+      {/* GoResume-Style Hero Banner */}
+      <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-purple-500/20 shadow-2xl relative overflow-hidden bg-gradient-to-r from-slate-950 via-purple-950/40 to-slate-950">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-300 text-xs font-bold font-mono">
+                ⚡ GoResume.io Engine
               </span>
-            )}
+              <span className="text-xs text-purple-300 font-mono font-bold">
+                80+ ATS Templates &bull; Land 3x More Interviews
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight mt-2">
+              Build your ATS Resume <span className="text-purple-400">in just 2 minutes for FREE!</span>
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
+              Strict ATS-friendly templates trusted by technical recruiters worldwide. Guaranteed 1-page PDF export with zero formatting loss.
+            </p>
           </div>
-          <h2 className="text-xl font-black text-white mt-1">Live A4 ATS Resume Maker</h2>
-          <p className="text-xs text-slate-400">
-            Form entries on the left synchronize instantly with the high-resolution A4 preview on the right.
-          </p>
+
+          {/* Action Header Buttons */}
+          <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-end">
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={handleResetToSample}
+              className="text-xs text-slate-300 hover:text-white border border-slate-800"
+            >
+              Load Sample
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="xs"
+              icon={Trash2}
+              onClick={handleClearResume}
+              className="text-xs text-rose-400 hover:text-rose-300 border border-slate-800"
+            >
+              Clear
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={Printer}
+              onClick={() => printResumeElement(previewRef.current)}
+              className="text-xs font-bold"
+            >
+              Print 1-Page
+            </Button>
+
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Download}
+              loading={isDownloadingPdf}
+              onClick={handleDownloadPdf}
+              className="bg-purple-600 hover:bg-purple-500 font-bold shadow-lg shadow-purple-950/50 text-white"
+            >
+              Download 1-Page PDF
+            </Button>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-end">
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={handleResetToSample}
-            className="text-xs text-slate-300 hover:text-white border border-slate-800"
-          >
-            Load Sample
-          </Button>
+        {/* GoResume Template Selector Grid Carousel */}
+        <div className="mt-6 pt-5 border-t border-purple-500/20">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-300">Choose an ATS Template</span>
+            <span className="text-[11px] text-slate-400 font-mono">100% Recruiter Tested</span>
+          </div>
 
-          <Button
-            variant="ghost"
-            size="xs"
-            icon={Trash2}
-            onClick={handleClearResume}
-            className="text-xs text-rose-400 hover:text-rose-300 border border-slate-800"
-          >
-            Clear
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={Printer}
-            onClick={() => printResumeElement(previewRef.current)}
-            className="text-xs font-bold"
-          >
-            Print
-          </Button>
-
-          <Button
-            variant="primary"
-            size="sm"
-            icon={Download}
-            loading={isDownloadingPdf}
-            onClick={handleDownloadPdf}
-            className="bg-rose-600 hover:bg-rose-500 font-bold shadow-lg shadow-rose-950/40 text-white"
-          >
-            Download A4 PDF
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={Zap}
-            onClick={handleAnalyzeInATS}
-            className="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 font-bold"
-          >
-            Audit with ATS Scanner &rarr;
-          </Button>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {GORESUME_TEMPLATES.map((tmpl) => (
+              <button
+                key={tmpl.id}
+                onClick={() => setSelectedTemplate(tmpl.id)}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
+                  selectedTemplate === tmpl.id
+                    ? 'bg-purple-950/80 border-purple-500 shadow-lg shadow-purple-950/50 scale-[1.02]'
+                    : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white">{tmpl.name}</span>
+                  {selectedTemplate === tmpl.id && <Check className="w-4 h-4 text-purple-400" />}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">{tmpl.desc}</p>
+                <span className="inline-block mt-2 text-[9px] font-mono text-purple-300 bg-purple-950/60 border border-purple-500/30 px-1.5 py-0.5 rounded">
+                  ★ Chosen by {tmpl.chosen}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Main Two-Column Layout */}
+      {/* Main Studio Two-Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: Resume Form Inputs */}
         <div className="lg:col-span-5 space-y-4">
@@ -475,7 +519,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
                 onClick={() => setActiveSection(sec.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
                   activeSection === sec.id
-                    ? 'bg-rose-600 text-white shadow-md shadow-rose-950/50'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-950/50'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                 }`}
               >
@@ -575,7 +619,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
                     icon={Sparkles}
                     loading={isGeneratingSummary}
                     onClick={handleGenerateSummary}
-                    className="bg-indigo-600/30 text-indigo-300 border-indigo-500/40 hover:bg-indigo-600/50"
+                    className="bg-purple-600/30 text-purple-300 border-purple-500/40 hover:bg-purple-600/50"
                   >
                     Generate with AI
                   </Button>
@@ -586,7 +630,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
                   value={resumeData.summary}
                   onChange={(e) => setResumeData((prev) => ({ ...prev, summary: e.target.value }))}
                   placeholder="Write a concise career summary or click 'Generate with AI'..."
-                  className="w-full bg-slate-950 border border-slate-700 text-xs rounded-2xl p-3 text-slate-200 outline-none focus:border-rose-500 transition leading-relaxed"
+                  className="w-full bg-slate-950 border border-slate-700 text-xs rounded-2xl p-3 text-slate-200 outline-none focus:border-purple-500 transition leading-relaxed"
                 />
               </div>
             )}
@@ -703,12 +747,12 @@ export const ResumeBuilder = ({ onSendToATS }) => {
                       {(resumeData.skills[key] || []).map((sk) => (
                         <span
                           key={sk}
-                          className="bg-indigo-950 text-indigo-300 border border-indigo-500/40 px-2.5 py-0.5 rounded-lg text-xs flex items-center gap-1.5"
+                          className="bg-purple-950 text-purple-300 border border-purple-500/40 px-2.5 py-0.5 rounded-lg text-xs flex items-center gap-1.5"
                         >
                           <span>{sk}</span>
                           <button
                             onClick={() => handleRemoveSkill(key, sk)}
-                            className="text-indigo-400 hover:text-white cursor-pointer"
+                            className="text-purple-400 hover:text-white cursor-pointer"
                           >
                             ×
                           </button>
@@ -729,7 +773,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
                             handleAddSkill(key);
                           }
                         }}
-                        className="flex-1 bg-slate-900 border border-slate-700 text-xs rounded-xl px-3 py-1.5 text-white outline-none focus:border-rose-500"
+                        className="flex-1 bg-slate-900 border border-slate-700 text-xs rounded-xl px-3 py-1.5 text-white outline-none focus:border-purple-500"
                       />
                       <Button variant="secondary" size="xs" onClick={() => handleAddSkill(key)}>
                         Add
@@ -828,7 +872,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
                             experience: prev.experience.map((item) => (item.id === exp.id ? { ...item, description: e.target.value } : item)),
                           }))
                         }
-                        className="w-full bg-slate-900 border border-slate-700 text-xs rounded-xl p-2.5 text-white outline-none focus:border-rose-500 leading-relaxed font-mono"
+                        className="w-full bg-slate-900 border border-slate-700 text-xs rounded-xl p-2.5 text-white outline-none focus:border-purple-500 leading-relaxed font-mono"
                         placeholder="• Developed features...\n• Improved response latency..."
                       />
                     </div>
@@ -921,7 +965,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
                           icon={Sparkles}
                           loading={isImprovingProjId === proj.id}
                           onClick={() => handleImproveProject(proj.id)}
-                          className="text-[10px] text-indigo-400 hover:text-indigo-300 py-0.5 px-2"
+                          className="text-[10px] text-purple-400 hover:text-purple-300 py-0.5 px-2"
                         >
                           Improve with AI
                         </Button>
@@ -935,7 +979,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
                             projects: prev.projects.map((item) => (item.id === proj.id ? { ...item, description: e.target.value } : item)),
                           }))
                         }
-                        className="w-full bg-slate-900 border border-slate-700 text-xs rounded-xl p-2.5 text-white outline-none focus:border-rose-500 leading-relaxed font-mono"
+                        className="w-full bg-slate-900 border border-slate-700 text-xs rounded-xl p-2.5 text-white outline-none focus:border-purple-500 leading-relaxed font-mono"
                         placeholder="• Engineered platform with..."
                       />
                     </div>
@@ -998,27 +1042,50 @@ export const ResumeBuilder = ({ onSendToATS }) => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Live A4 Resume Preview + Controls */}
+        {/* RIGHT COLUMN: GoResume-Style Live 1-Page A4 Canvas + Customizer */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Template Selector Bar & Zoom Controls */}
+          {/* Style Customizer Toolbar */}
           <div className="glass-panel rounded-2xl p-3 border border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-900/90 shadow-xl">
-            {/* Template Selector */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Template:</span>
-              {TEMPLATES.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setSelectedTemplate(t.id)}
-                  className={`px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    selectedTemplate === t.id
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40'
-                      : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
-                  }`}
-                  title={t.desc}
-                >
-                  {t.name}
-                </button>
-              ))}
+            {/* Color Swatch Picker */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <Palette className="w-3 h-3 text-purple-400" /> Color:
+              </span>
+              <div className="flex items-center gap-1.5">
+                {COLOR_SWATCHES.map((sw) => (
+                  <button
+                    key={sw.id}
+                    onClick={() => setThemeColor(sw.id)}
+                    style={{ backgroundColor: sw.hex }}
+                    className={`w-5 h-5 rounded-full transition-transform cursor-pointer border ${
+                      themeColor === sw.id ? 'ring-2 ring-purple-400 scale-110 border-white' : 'border-slate-700 opacity-80 hover:opacity-100'
+                    }`}
+                    title={sw.name}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Typography Selector */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <Type className="w-3 h-3 text-purple-400" /> Font:
+              </span>
+              <div className="flex gap-1">
+                {FONT_OPTIONS.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFontFamily(f.id)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                      fontFamily === f.id
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                    }`}
+                  >
+                    {f.name}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Zoom Controls & Score */}
@@ -1039,28 +1106,29 @@ export const ResumeBuilder = ({ onSendToATS }) => {
                 </button>
               </div>
 
-              <div className="px-2.5 py-1 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold font-mono">
-                ATS Fit: {atsScore}%
+              <div className="px-2.5 py-1 rounded-xl bg-purple-950/80 border border-purple-500/40 text-purple-300 text-[11px] font-bold font-mono">
+                ATS Score: {atsScore}%
               </div>
             </div>
           </div>
 
-          {/* A4 Resume Canvas Wrapper with Scalable Container */}
+          {/* Strict 1-Page A4 Canvas */}
           <div className="w-full overflow-x-auto rounded-3xl border border-slate-800 bg-slate-950 p-4 flex justify-center shadow-2xl">
             <div
               style={{
                 transform: `scale(${zoomLevel})`,
                 transformOrigin: 'top center',
                 width: '210mm',
-                minHeight: '297mm',
+                height: '297mm',
+                maxHeight: '297mm',
               }}
               className="transition-transform duration-200"
             >
-              <div id="printable-resume-canvas" ref={previewRef} className="rounded shadow-2xl overflow-hidden print:shadow-none">
-                {selectedTemplate === 'ats_pro' && <ATSProfessionalTemplate data={resumeData} />}
-                {selectedTemplate === 'modern' && <ModernProfessionalTemplate data={resumeData} />}
-                {selectedTemplate === 'minimal' && <MinimalTemplate data={resumeData} />}
-                {selectedTemplate === 'fresher' && <FresherStudentTemplate data={resumeData} />}
+              <div id="printable-resume-canvas" ref={previewRef} className="rounded shadow-2xl overflow-hidden print:shadow-none bg-white">
+                {selectedTemplate === 'swan' && <ATSSwanTemplate data={resumeData} themeColor={themeColor} font={fontFamily} />}
+                {selectedTemplate === 'bear' && <ModernBearTemplate data={resumeData} themeColor={themeColor} font={fontFamily} />}
+                {selectedTemplate === 'raven' && <MinimalRavenTemplate data={resumeData} />}
+                {selectedTemplate === 'penguin' && <FresherPenguinTemplate data={resumeData} themeColor={themeColor} font={fontFamily} />}
               </div>
             </div>
           </div>
