@@ -426,7 +426,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
             variant="secondary"
             size="sm"
             icon={Printer}
-            onClick={printResumeElement}
+            onClick={() => printResumeElement(previewRef.current)}
             className="text-xs font-bold"
           >
             Print
@@ -1056,7 +1056,7 @@ export const ResumeBuilder = ({ onSendToATS }) => {
               }}
               className="transition-transform duration-200"
             >
-              <div ref={previewRef} className="rounded shadow-2xl overflow-hidden print:shadow-none">
+              <div id="printable-resume-canvas" ref={previewRef} className="rounded shadow-2xl overflow-hidden print:shadow-none">
                 {selectedTemplate === 'ats_pro' && <ATSProfessionalTemplate data={resumeData} />}
                 {selectedTemplate === 'modern' && <ModernProfessionalTemplate data={resumeData} />}
                 {selectedTemplate === 'minimal' && <MinimalTemplate data={resumeData} />}
