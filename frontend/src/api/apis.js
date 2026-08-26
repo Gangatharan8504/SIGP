@@ -122,6 +122,8 @@ export const resumeApi = {
   analyzeText: (data) => api.post('/resumes/analyze', data),
   getLatestAnalysis: () => api.get('/resumes/latest-analysis'),
   getLatest: () => api.get('/resumes/latest-analysis'),
+  generateSummary: (data) => api.post('/resumes/ai-summary', data),
+  improveProject: (data) => api.post('/resumes/ai-improve-project', data),
   uploadFile: (formData) => api.post('/resumes/analyze', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),

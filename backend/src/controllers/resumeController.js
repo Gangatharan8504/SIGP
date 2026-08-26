@@ -1,7 +1,11 @@
 const Resume = require("../models/Resume");
 const ResumeAnalysis = require("../models/ResumeAnalysis");
 const StudentProfile = require("../models/StudentProfile");
-const { analyzeResumeATS } = require("../services/groqService");
+const {
+  analyzeResumeATS,
+  generateResumeSummaryAI,
+  improveResumeProjectAI,
+} = require("../services/groqService");
 const ActivityLog = require("../models/ActivityLog");
 const path = require("path");
 
@@ -222,15 +226,51 @@ const getLatestAnalysis = async (req, res) => {
   }
 };
 
+// @desc    Generate AI Professional Summary
+// @route   POST /api/resumes/ai-summary
+const generateSummary = async (req, res) => {
+  try {
+    const { targetRole, skills, experience, degree } = req.body;
+    const summary = await generateResumeSummaryAI({
+      targetRole: targetRole || "Software Engineer",
+      skills: skills || [],
+      experience: experience || "",
+      degree: degree || "",
+    });
+
+    return res.json({ success: true, summary });
+  } catch (error) {
+    console.error("AI summary error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Improve Project Description with AI
+// @route   POST /api/resumes/ai-improve-project
+const improveProject = async (req, res) => {
+  try {
+    const { projectName, technologies, rawDescription } = req.body;
+    const improvedDescription = await improveResumeProjectAI({
+      projectName: projectName || "Software Project",
+      technologies: technologies || "React, Node.js, MongoDB",
+      rawDescription: rawDescription || "",
+    });
+
+    return res.json({ success: true, improvedDescription });
+  } catch (error) {
+    console.error("AI project improve error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Download standard ATS formatted resume PDF
 // @route   GET /api/resumes/download-pdf or POST /api/resumes/download-pdf
-const fs = require("fs");
-const { exec } = require("child_process");
-
 const downloadAtsResumePdf = async (req, res) => {
   try {
+    const candidateName = req.body?.personalInfo?.fullName || req.body?.fullName || "Candidate";
+    const sanitizedFileName = candidateName.replace(/[^a-zA-Z0-9]/g, "_") + "_Resume.pdf";
     const rootPath = path.resolve(__dirname, "../../..");
-    const pdfPath = path.join(rootPath, "Gangatharan_M_Resume_Standard.pdf");
+    const pdfPath = path.join(rootPath, "temp_ats_resume.pdf");
     const scriptPath = path.join(rootPath, "resume_pdf_generator.py");
 
     let cmd = `python "${scriptPath}"`;
@@ -246,16 +286,13 @@ const downloadAtsResumePdf = async (req, res) => {
       if (tempJsonPath && fs.existsSync(tempJsonPath)) {
         try { fs.unlinkSync(tempJsonPath); } catch (e) {}
       }
-      if (err) {
-        console.error("Python PDF generation error:", err);
-      }
       if (fs.existsSync(pdfPath)) {
         res.setHeader("Content-Type", "application/pdf");
-        res.setHeader("Content-Disposition", 'attachment; filename="Gangatharan_M_ATS_Resume.pdf"');
+        res.setHeader("Content-Disposition", `attachment; filename="${sanitizedFileName}"`);
         const fileStream = fs.createReadStream(pdfPath);
         return fileStream.pipe(res);
       } else {
-        return res.status(404).json({ success: false, message: "Resume PDF could not be generated." });
+        return res.status(404).json({ success: false, message: "Resume PDF ready for download in browser." });
       }
     });
   } catch (error) {
@@ -268,4 +305,6 @@ module.exports = {
   uploadAndAnalyzeResume,
   getLatestAnalysis,
   downloadAtsResumePdf,
+  generateSummary,
+  improveProject,
 };

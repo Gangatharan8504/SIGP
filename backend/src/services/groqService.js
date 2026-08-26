@@ -961,6 +961,75 @@ Return strictly a valid JSON object matching this structure:
   return fallback;
 };
 
+/**
+ * AI Professional Resume Summary Generator
+ */
+const generateResumeSummaryAI = async ({ targetRole = "Software Engineer", skills = [], experience = "", degree = "" }) => {
+  const skillsStr = Array.isArray(skills) ? skills.join(", ") : skills;
+  const prompt = `Write a high-impact, professional 3-sentence ATS-friendly professional resume summary.
+Target Role: ${targetRole}
+Key Technical Skills: ${skillsStr || "Java, React, Node.js, SQL"}
+Education: ${degree || "B.Tech Information Technology"}
+Experience / Background: ${experience || "Student developer with academic project and internship experience"}
+
+Guidelines:
+- Start with a strong professional title and focus.
+- Highlight core technical proficiencies, problem-solving, and architecture strengths.
+- Emphasize passion for delivering scalable, maintainable solutions in a high-performing engineering team.
+- Do NOT use first-person pronouns ("I", "my"). Write in standard professional resume active voice.
+- Output ONLY the 3-sentence summary paragraph without quotes or extra conversational text.`;
+
+  const messages = [
+    { role: "system", content: "You are an expert executive resume writer and ATS specialist. Output only the refined professional summary paragraph." },
+    { role: "user", content: prompt },
+  ];
+
+  try {
+    const res = await executeGroqChat(messages, { temperature: 0.3, max_tokens: 300 });
+    if (res && res.trim()) {
+      return res.replace(/^["']|["']$/g, "").trim();
+    }
+  } catch (err) {
+    console.warn("[Groq AI Summary Generation Notice]:", err.message);
+  }
+
+  return `Results-driven ${targetRole} with a solid technical foundation in ${skillsStr || "modern software engineering and web technologies"}. Proven ability to build and deploy responsive web applications, design clean RESTful APIs, and optimize database schemas. Passionate about applying algorithmic problem-solving skills to build high-performance, scalable systems.`;
+};
+
+/**
+ * AI Project Description Bullet Point Enhancer
+ */
+const improveResumeProjectAI = async ({ projectName, technologies, rawDescription }) => {
+  const prompt = `Transform the following resume project description into 3-4 professional, impact-driven bullet points tailored for technical recruiter ATS parsing.
+
+Project Title: "${projectName}"
+Technologies Used: "${technologies}"
+Raw Notes / Description: "${rawDescription}"
+
+Rules:
+1. Start each bullet point with a powerful past-tense action verb (e.g., Engineered, Architected, Implemented, Optimized, Streamlined).
+2. Integrate the technologies naturally.
+3. Include realistic, quantifiable metrics where appropriate (e.g. improved query latency by 30%, supported 500+ daily requests).
+4. Strictly do NOT invent unrelated frameworks.
+5. Return the bullet points separated by newlines, each starting with "• ".`;
+
+  const messages = [
+    { role: "system", content: "You are a senior technical hiring manager. Format output strictly as 3-4 bullet points starting with '• '." },
+    { role: "user", content: prompt },
+  ];
+
+  try {
+    const res = await executeGroqChat(messages, { temperature: 0.3, max_tokens: 400 });
+    if (res && res.trim()) {
+      return res.trim();
+    }
+  } catch (err) {
+    console.warn("[Groq Project Enhancement Notice]:", err.message);
+  }
+
+  return `• Engineered full-stack architecture for ${projectName} leveraging ${technologies}.\n• Developed responsive user interfaces and robust RESTful API endpoints for seamless data flow.\n• Optimized database queries and state management, ensuring sub-second response times and high reliability.`;
+};
+
 module.exports = {
   runAIAgent,
   analyzeSkillGap,
@@ -970,4 +1039,6 @@ module.exports = {
   generateAssessmentQuestionsWithAI,
   generateFullPatternExamAI,
   getFullPatternDefaultExam,
+  generateResumeSummaryAI,
+  improveResumeProjectAI,
 };
