@@ -15,12 +15,8 @@ const seedDatabase = async () => {
 
     // Check if catalog already exists
     const skillCount = await Skill.countDocuments();
-    if (skillCount > 0) {
-      console.log("SGIP platform taxonomy & catalog already initialized.");
-      return;
-    }
-
-    console.log("Seeding master SGIP platform catalog & taxonomy...");
+    if (skillCount === 0) {
+      console.log("Seeding master SGIP platform catalog & taxonomy...");
 
     // 1. Master Skills Catalog
     const skills = [
@@ -338,6 +334,9 @@ const seedDatabase = async () => {
     ]);
 
     console.log("Master SGIP catalog & taxonomy seeded successfully!");
+    } else {
+      console.log("SGIP platform taxonomy & catalog already initialized.");
+    }
   } catch (err) {
     console.error("Database seeding error:", err);
   }

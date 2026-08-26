@@ -224,7 +224,51 @@ const login = async (req, res) => {
     const email = String(rawEmail).toLowerCase().trim();
     const password = String(rawPassword);
 
-    const user = await User.findOne({ email }).select("+password");
+    let user = await User.findOne({ email }).select("+password");
+
+    // Auto-provision standard demo accounts on demand if not yet created in MongoDB
+    if (!user) {
+      const demoAccounts = {
+        "coordinator@demo.com": { name: "Placement Coordinator", role: "placement_coordinator", defaultPw: "password123" },
+        "admin@demo.com": { name: "Admin Lead", role: "admin", defaultPw: "password123" },
+        "faculty@demo.com": { name: "Faculty Mentor", role: "faculty", defaultPw: "password123" },
+        "student@demo.com": { name: "Demo Student", role: "student", defaultPw: "password123" },
+        "gangatharan8504@gmail.com": { name: "GANGATHARAN M", role: "student", defaultPw: "password123" },
+      };
+
+      if (demoAccounts[email]) {
+        const demo = demoAccounts[email];
+        user = await User.create({
+          name: demo.name,
+          email,
+          password: demo.defaultPw,
+          role: demo.role,
+        });
+
+        if (demo.role === "student") {
+          await StudentProfile.create({
+            user: user._id,
+            fullName: demo.name,
+            rollNumber: "SGIP-2026",
+            department: "Information Technology",
+            batch: "2023-2027",
+            collegeName: "V.S.B Engineering College",
+            targetRole: "Full Stack Software Engineer",
+            cgpa: 7.48,
+          });
+          await Academic.create({
+            userId: user._id,
+            cgpa: 7.48,
+            currentDegree: "B.Tech",
+            branch: "Information Technology",
+            currentSemester: 6,
+            tenthPercentage: 88,
+            twelfthOrDiplomaPercentage: 85,
+          });
+        }
+      }
+    }
+
     if (!user) {
       return res.status(401).json({
         success: false,
