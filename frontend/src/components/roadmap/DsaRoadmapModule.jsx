@@ -6,6 +6,7 @@ import {
   INITIAL_DSA_PROBLEMS,
   INITIAL_MISTAKE_JOURNAL,
   WEEKLY_LEADERBOARD_SAMPLE,
+  getLeetCodeUrl,
 } from '../../utils/dsaMasterRoadmapData';
 import { PLACEMENT_ROADMAP_STAGES } from '../../utils/aptitudeMasterRoadmapData';
 import {
@@ -641,15 +642,26 @@ export const DsaRoadmapModule = () => {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 pt-2">
+                  {/* Actions: LeetCode Direct Link + Problem Flow + Mark Solved */}
+                  <div className="flex items-center gap-1.5 pt-2 flex-wrap">
+                    <a
+                      href={getLeetCodeUrl(prob)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 transition shrink-0 cursor-pointer"
+                      title="Solve directly on LeetCode.com"
+                    >
+                      <span>LeetCode</span>
+                      <ExternalLink className="w-3 h-3 text-amber-400" />
+                    </a>
+
                     <Button
                       variant="secondary"
                       size="xs"
                       onClick={() => setActiveProblemModal(prob)}
                       className="flex-1 text-xs font-bold bg-slate-900 border-slate-700 hover:border-indigo-400"
                     >
-                      Open Problem Flow
+                      Problem Flow
                     </Button>
 
                     <Button
@@ -657,13 +669,13 @@ export const DsaRoadmapModule = () => {
                       size="xs"
                       icon={isSolved ? CheckCircle2 : Check}
                       onClick={() => handleToggleSolved(prob.problemId)}
-                      className={`text-xs font-bold ${
+                      className={`text-xs font-bold shrink-0 ${
                         isSolved
                           ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
                           : 'bg-indigo-600 hover:bg-indigo-500 text-white'
                       }`}
                     >
-                      {isSolved ? 'Done ✓' : 'Mark Solved'}
+                      {isSolved ? 'Done ✓' : 'Solve'}
                     </Button>
                   </div>
                 </div>
@@ -977,16 +989,29 @@ export const DsaRoadmapModule = () => {
 
             {/* Actions Bar */}
             <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
-              <Link to="/practice">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={Terminal}
-                  className="bg-indigo-950 border-indigo-500/40 text-indigo-300 font-bold text-xs"
+              <div className="flex items-center gap-2 flex-wrap">
+                <a
+                  href={getLeetCodeUrl(activeProblemModal)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-lg shadow-amber-950/30"
+                  title="Open problem directly on LeetCode.com"
                 >
-                  Solve in SGIP Compiler &rarr;
-                </Button>
-              </Link>
+                  <span>Solve on LeetCode</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                </a>
+
+                <Link to="/practice">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={Terminal}
+                    className="bg-indigo-950 border-indigo-500/40 text-indigo-300 font-bold text-xs"
+                  >
+                    Solve in SGIP Compiler &rarr;
+                  </Button>
+                </Link>
+              </div>
 
               <div className="flex items-center gap-2">
                 <Button

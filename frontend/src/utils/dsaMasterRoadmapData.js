@@ -192,12 +192,23 @@ export const PATTERN_RECOGNITION_GUIDE = [
   },
 ];
 
+export const getLeetCodeUrl = (prob) => {
+  if (prob.leetcodeUrl) return prob.leetcodeUrl;
+  const slug = prob.title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+  return `https://leetcode.com/problems/${slug}/`;
+};
+
 export const INITIAL_DSA_PROBLEMS = [
   // Phase 1: Basics
   {
     problemId: "p1_1",
     leetcodeNumber: 1929,
     title: "Concatenation of Array",
+    leetcodeUrl: "https://leetcode.com/problems/concatenation-of-array/",
     phase: 1,
     phaseTitle: "Phase 1 – Basics",
     difficulty: "Easy",
@@ -220,6 +231,7 @@ export const INITIAL_DSA_PROBLEMS = [
     problemId: "p1_2",
     leetcodeNumber: 9,
     title: "Palindrome Number",
+    leetcodeUrl: "https://leetcode.com/problems/palindrome-number/",
     phase: 1,
     phaseTitle: "Phase 1 – Basics",
     difficulty: "Easy",
@@ -244,6 +256,7 @@ export const INITIAL_DSA_PROBLEMS = [
     problemId: "p2_1",
     leetcodeNumber: 1,
     title: "Two Sum",
+    leetcodeUrl: "https://leetcode.com/problems/two-sum/",
     phase: 2,
     phaseTitle: "Phase 2 – Arrays",
     difficulty: "Easy",
