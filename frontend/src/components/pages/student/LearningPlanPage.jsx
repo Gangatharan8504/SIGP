@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { Button, Badge, Spinner } from '../../common/UIElements';
 import { AptitudeRoadmapModule } from '../../roadmap/AptitudeRoadmapModule';
+import { DsaRoadmapModule } from '../../roadmap/DsaRoadmapModule';
 import { AptitudePlacementRoadmap } from '../../roadmap/AptitudePlacementRoadmap';
 import confetti from 'canvas-confetti';
 
@@ -226,14 +227,26 @@ export const LearningPlanPage = () => {
       <div className="glass-panel rounded-2xl p-2 border border-slate-800 flex items-center gap-2 bg-slate-900/90 shadow-xl overflow-x-auto scrollbar-none">
         <button
           onClick={() => setRoadmapTab('aptitude_stage1')}
-          className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+          className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
             roadmapTab === 'aptitude_stage1'
               ? 'bg-purple-600 text-white shadow-lg shadow-purple-950/50'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <Target className="w-4 h-4 text-purple-300" />
-          <span>Stage 1: Aptitude Roadmap (6 Phases &bull; 36 Topics)</span>
+          <span>Stage 1: Aptitude Roadmap (36 Topics)</span>
+        </button>
+
+        <button
+          onClick={() => setRoadmapTab('dsa_stage2')}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            roadmapTab === 'dsa_stage2'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-950/50'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Code2 className="w-4 h-4 text-indigo-300" />
+          <span>Stage 2: LeetCode &amp; DSA Roadmap (14 Phases)</span>
         </button>
 
         <button
@@ -245,7 +258,7 @@ export const LearningPlanPage = () => {
           }`}
         >
           <BookOpen className="w-4 h-4 text-purple-300" />
-          <span>30-Day Daily Prep (Tamil &amp; English)</span>
+          <span>30-Day Daily Study (Tamil &amp; English)</span>
         </button>
 
         <button
@@ -263,6 +276,8 @@ export const LearningPlanPage = () => {
 
       {roadmapTab === 'aptitude_stage1' ? (
         <AptitudeRoadmapModule />
+      ) : roadmapTab === 'dsa_stage2' ? (
+        <DsaRoadmapModule />
       ) : roadmapTab === 'aptitude_30_days' ? (
         <AptitudePlacementRoadmap />
       ) : (
