@@ -27,10 +27,9 @@ import {
   FolderGit2,
   GraduationCap,
   FileText,
-  HelpCircle,
-  Play,
 } from 'lucide-react';
 import { Button, Badge, Spinner } from '../../common/UIElements';
+import { AptitudeRoadmapModule } from '../../roadmap/AptitudeRoadmapModule';
 import { AptitudePlacementRoadmap } from '../../roadmap/AptitudePlacementRoadmap';
 import confetti from 'canvas-confetti';
 
@@ -47,7 +46,7 @@ const ROLE_OPTIONS = [
 ];
 
 export const LearningPlanPage = () => {
-  const [roadmapTab, setRoadmapTab] = useState('aptitude_30_days'); // 'aptitude_30_days' | 'technical_6_weeks'
+  const [roadmapTab, setRoadmapTab] = useState('aptitude_stage1'); // 'aptitude_stage1' | 'aptitude_30_days' | 'technical_6_weeks'
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState(null);
   const [selectedRole, setSelectedRole] = useState('Java Developer');
@@ -224,33 +223,47 @@ export const LearningPlanPage = () => {
       )}
 
       {/* Main Roadmap Hub Tabs Switcher */}
-      <div className="glass-panel rounded-2xl p-2 border border-slate-800 flex items-center gap-2 bg-slate-900/90 shadow-xl">
+      <div className="glass-panel rounded-2xl p-2 border border-slate-800 flex items-center gap-2 bg-slate-900/90 shadow-xl overflow-x-auto scrollbar-none">
         <button
-          onClick={() => setRoadmapTab('aptitude_30_days')}
-          className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
-            roadmapTab === 'aptitude_30_days'
+          onClick={() => setRoadmapTab('aptitude_stage1')}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            roadmapTab === 'aptitude_stage1'
               ? 'bg-purple-600 text-white shadow-lg shadow-purple-950/50'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <Target className="w-4 h-4 text-purple-300" />
-          <span>30-Day Aptitude &amp; Placement Master (Tamil &amp; English)</span>
+          <span>Stage 1: Aptitude Roadmap (6 Phases &bull; 36 Topics)</span>
+        </button>
+
+        <button
+          onClick={() => setRoadmapTab('aptitude_30_days')}
+          className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            roadmapTab === 'aptitude_30_days'
+              ? 'bg-purple-600 text-white shadow-lg shadow-purple-950/50'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <BookOpen className="w-4 h-4 text-purple-300" />
+          <span>30-Day Daily Prep (Tamil &amp; English)</span>
         </button>
 
         <button
           onClick={() => setRoadmapTab('technical_6_weeks')}
-          className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
+          className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer whitespace-nowrap ${
             roadmapTab === 'technical_6_weeks'
               ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-950/50'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <Sparkles className="w-4 h-4 text-indigo-300" />
-          <span>6-Week Technical Role Roadmap (Groq AI)</span>
+          <span>Technical 6-Week Role Plan</span>
         </button>
       </div>
 
-      {roadmapTab === 'aptitude_30_days' ? (
+      {roadmapTab === 'aptitude_stage1' ? (
+        <AptitudeRoadmapModule />
+      ) : roadmapTab === 'aptitude_30_days' ? (
         <AptitudePlacementRoadmap />
       ) : (
         <>
