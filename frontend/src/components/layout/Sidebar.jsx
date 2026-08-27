@@ -7,8 +7,6 @@ import {
   Sparkles,
   Target,
   BookOpen,
-  FileCheck,
-  Code2,
   FolderGit2,
   FileText,
   Building2,
@@ -36,7 +34,6 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { label: 'Verified Skills Matrix', path: '/skills', icon: Sparkles },
     { label: 'AI Skill Gap Diagnostic', path: '/skill-gap', icon: Target },
     { label: 'Personalized Roadmap', path: '/learning-plan', icon: BookOpen },
-    { label: 'Faculty Assignments', path: '/assignments', icon: FileCheck },
     { label: 'Mock Assessments & Exams', path: '/secure-exam/pattern-test', icon: Clock },
     { label: 'Coding Compiler & Practice', path: '/practice', altPaths: ['/compiler'], icon: Terminal },
     { label: 'Projects & Hackathons', path: '/projects', icon: FolderGit2 },
@@ -48,7 +45,6 @@ export const Sidebar = ({ isOpen, onClose }) => {
 
   const facultyNavItems = [
     { label: 'Faculty Intelligence', path: '/faculty/dashboard', icon: LayoutDashboard },
-    { label: 'Course Assignments', path: '/faculty/assignments', icon: FileCheck },
     { label: 'Assessments & Quizzes', path: '/admin/assessments', icon: Clock },
     { label: 'Question Bank', path: '/admin/question-bank', icon: HelpCircle },
     { label: 'RAG Knowledge Ingestion', path: '/faculty/rag', icon: Upload },
