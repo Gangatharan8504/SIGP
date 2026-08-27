@@ -31,6 +31,7 @@ import {
   Play,
 } from 'lucide-react';
 import { Button, Badge, Spinner } from '../../common/UIElements';
+import { AptitudePlacementRoadmap } from '../../roadmap/AptitudePlacementRoadmap';
 import confetti from 'canvas-confetti';
 
 const ROLE_OPTIONS = [
@@ -46,6 +47,7 @@ const ROLE_OPTIONS = [
 ];
 
 export const LearningPlanPage = () => {
+  const [roadmapTab, setRoadmapTab] = useState('aptitude_30_days'); // 'aptitude_30_days' | 'technical_6_weeks'
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState(null);
   const [selectedRole, setSelectedRole] = useState('Java Developer');
@@ -221,18 +223,49 @@ export const LearningPlanPage = () => {
         </div>
       )}
 
-      {/* Header with Role Selector and Actions */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Badge variant="indigo">Personalized AI Roadmap</Badge>
-            <span className="text-xs text-slate-400 font-mono">Dynamic 6-Week Placement Milestones</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white mt-1">Placement Preparation Plan</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            AI-sequenced milestones with mandatory prerequisites, compiler tasks, and YouTube video tutorials.
-          </p>
-        </div>
+      {/* Main Roadmap Hub Tabs Switcher */}
+      <div className="glass-panel rounded-2xl p-2 border border-slate-800 flex items-center gap-2 bg-slate-900/90 shadow-xl">
+        <button
+          onClick={() => setRoadmapTab('aptitude_30_days')}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
+            roadmapTab === 'aptitude_30_days'
+              ? 'bg-purple-600 text-white shadow-lg shadow-purple-950/50'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Target className="w-4 h-4 text-purple-300" />
+          <span>30-Day Aptitude &amp; Placement Master (Tamil &amp; English)</span>
+        </button>
+
+        <button
+          onClick={() => setRoadmapTab('technical_6_weeks')}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
+            roadmapTab === 'technical_6_weeks'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-950/50'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-indigo-300" />
+          <span>6-Week Technical Role Roadmap (Groq AI)</span>
+        </button>
+      </div>
+
+      {roadmapTab === 'aptitude_30_days' ? (
+        <AptitudePlacementRoadmap />
+      ) : (
+        <>
+          {/* Header with Role Selector and Actions */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Badge variant="indigo">Personalized AI Roadmap</Badge>
+                <span className="text-xs text-slate-400 font-mono">Dynamic 6-Week Placement Milestones</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white mt-1">Placement Preparation Plan</h1>
+              <p className="text-xs text-slate-400 mt-0.5">
+                AI-sequenced milestones with mandatory prerequisites, compiler tasks, and YouTube video tutorials.
+              </p>
+            </div>
 
         {/* Target Role & Regenerate Button */}
         <div className="flex items-center gap-2 flex-wrap">
@@ -556,6 +589,8 @@ export const LearningPlanPage = () => {
           );
         })}
       </div>
+      </>
+      )}
 
       {/* Roadmap History Modal */}
       {historyDrawerOpen && (
